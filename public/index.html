@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cantina da Cléo - Pedidos</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="cliente-container">
+        <div class="card">
+            <div class="logo-container">
+                <img src="/logo.jpg" alt="Logo da Cantina da Cléo">
+            </div>
+            <p style="text-align: center;">Faça seu pedido online de forma rápida e fácil!</p>
+            <a href="/acompanhar.html" style="display: block; text-align: center; margin-top: 10px; color: var(--cor-destaque);">Acompanhar meu Pedido</a>
+        </div>
+        <div class="card">
+            <h2 id="nome-cardapio">Carregando cardápio do dia...</h2>
+            <form id="form-pedido">
+                <label for="prato">Prato Principal:</label>
+                <select id="prato" name="prato" required></select>
+                <label for="acompanhamento">Acompanhamento:</label>
+                <select id="acompanhamento" name="acompanhamento" required></select>
+                <label for="quantidade">Quantidade:</label>
+                <input type="number" id="quantidade" name="quantidade" value="1" min="1" required>
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--cor-borda-suave);">
+                <h2>Seus Dados</h2>
+                <label for="nome">Seu Nome:</label>
+                <input type="text" id="nome" name="nome" required>
+                <label for="telefone">Seu Telefone (com DDD):</label>
+                <input type="tel" id="telefone" name="telefone" placeholder="(XX) XXXXX-XXXX" required>
+                <label for="endereco">Endereço de Entrega:</label>
+                <input type="text" id="endereco" name="endereco" required>
+                <label for="observacao">Observações (opcional):</label>
+                <textarea id="observacao" name="observacao" rows="3" placeholder="Ex: sem cebola, ponto da carne, etc."></textarea>
+                
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--cor-borda-suave);">
+                <h2>Forma de Pagamento</h2>
+                <div class="pagamento-opcoes">
+                    <div>
+                        <input type="radio" id="pagamento-dinheiro" name="forma_pagamento" value="Dinheiro" checked>
+                        <label for="pagamento-dinheiro">Dinheiro</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="pagamento-cartao" name="forma_pagamento" value="Cartão na Entrega">
+                        <label for="pagamento-cartao">Cartão na Entrega</label>
+                    </div>
+                    <div>
+                        <input type="radio" id="pagamento-pix" name="forma_pagamento" value="PIX">
+                        <label for="pagamento-pix">PIX</label>
+                    </div>
+                </div>
+
+                <div id="info-pix" style="display: none; margin-top: 15px; padding: 15px; background-color: #f5f5f5; border-radius: 8px;">
+                    <p>Chave PIX (E-mail):<br><strong>steffany&cleo@cantina_da_cleo.com</strong></p>
+                    <button type="button" id="copiar-pix">Copiar Chave PIX</button>
+                    <hr style="margin: 15px 0;">
+                    <label for="comprovante-pix">Anexar Comprovante (obrigatório para PIX):</label>
+                    <input type="file" id="comprovante-pix" name="comprovante" accept="image/*">
+                </div>
+
+                <button type="submit">Finalizar Pedido</button>
+            </form>
+            <div id="mensagem"></div>
+        </div>
+    </div>
+    <script>
+        async function carregarCardapio() {
+            const pratoSelect = document.getElementById('prato');
+            const acompanhamentoSelect = document.getElementById('acompanhamento');
+            const tituloCardapio = document.getElementById('nome-cardapio');
+            try {
+                const response = await fetch('/cardapio-ativo');
+                if (!response.ok) {
+                    tituloCardapio.textContent = "Nenhum cardápio disponível hoje. Volte mais tarde!";
+                    document.getElementById('form-pedido').style.display = 'none';
+                    return;
+                }
+                const cardapio = await response.json();
+                tituloCardapio.textContent = cardapio.nome;
+                pratoSelect.innerHTML = '';
+                acompanhamentoSelect.innerHTML = '';
+                cardapio.pratos.forEach(item => pratoSelect.add(new Option(item, item)));
+                cardapio.acompanhamentos.forEach(item => acompanhamentoSelect.add(new Option(item, item)));
+            } catch (error) {
+                console.error("Erro ao carregar cardápio:", error);
+                tituloCardapio.textContent = "Erro ao carregar o cardápio. Tente recarregar a página.";
+            }
+        }
+        window.onload = carregarCardapio;
+        
+        const radiosPagamento = document.querySelectorAll('input[name="forma_pagamento"]');
+        const infoPixDiv = document.getElementById('info-pix');
+        radiosPagamento.forEach(radio => {
+            radio.addEventListener('change', () => {
+                infoPixDiv.style.display = (radio.value === 'PIX') ? 'block' : 'none';
+            });
+        });
+
+        const btnCopiarPix = document.getElementById('copiar-pix');
+        btnCopiarPix.addEventListener('click', () => {
+            const chavePix = "steffany&cleo@cantina_da_cleo.com";
+            navigator.clipboard.writeText(chavePix).then(() => {
+                btnCopiarPix.textContent = 'Copiado!';
+                setTimeout(() => { btnCopiarPix.textContent = 'Copiar Chave PIX'; }, 2000);
+            }).catch(err => { console.error('Erro ao copiar a chave PIX:', err); });
+        });
+
+        document.getElementById('form-pedido').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const form = event.target;
+            const mensagemDiv = document.getElementById('mensagem');
+            const formaPagamento = document.querySelector('input[name="forma_pagamento"]:checked').value;
+            const comprovanteInput = document.getElementById('comprovante-pix');
+
+            if (formaPagamento === 'PIX' && comprovanteInput.files.length === 0) {
+                alert('Por favor, anexe o comprovante de pagamento do PIX.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('prato', form.prato.value);
+            formData.append('acompanhamento', form.acompanhamento.value);
+            formData.append('quantidade', form.quantidade.value);
+            formData.append('nome', form.nome.value);
+            formData.append('telefone', form.telefone.value);
+            formData.append('endereco', form.endereco.value);
+            formData.append('observacao', form.observacao.value);
+            formData.append('forma_pagamento', formaPagamento);
+            if (comprovanteInput.files.length > 0) {
+                formData.append('comprovante', comprovanteInput.files[0]);
+            }
+            try {
+                const response = await fetch('/novo_pedido', {
+                    method: 'POST',
+                    body: formData
+                });
+                const resultado = await response.json();
+                if (resultado.status === 'sucesso') {
+                    mensagemDiv.innerHTML = `Seu pedido foi enviado com sucesso! O número do seu pedido é <strong>#${resultado.pedidoId}</strong>. Guarde este número para <a href="/acompanhar.html">acompanhar</a>.`;
+                    mensagemDiv.className = 'sucesso';
+                    form.reset();
+                    infoPixDiv.style.display = 'none';
+                } else {
+                    mensagemDiv.textContent = 'Ocorreu um erro. Tente novamente.';
+                    mensagemDiv.className = 'erro';
+                }
+            } catch (error) {
+                mensagemDiv.textContent = 'Erro de conexão com o servidor.';
+                mensagemDiv.className = 'erro';
+            }
+            mensagemDiv.style.display = 'block';
+        });
+    </script>
+</body>
+</html>

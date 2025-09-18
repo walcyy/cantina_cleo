@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acompanhar Pedido - Cantina da Cléo</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        #status-resultado {
+            margin-top: 25px; padding: 20px; border-radius: 8px;
+            text-align: center; font-size: 1.2em; font-weight: bold;
+            display: none; border: 1px solid;
+        }
+        .status-recebido { background-color: #E3F2FD; color: #0D47A1; border-color: #90CAF9; }
+        .status-em-preparo { background-color: #FFFDE7; color: #F57F17; border-color: #FFF59D; }
+        .status-saiu-para-entrega { background-color: #E8F5E9; color: #1B5E20; border-color: #A5D6A7; }
+        .status-entregue { background-color: #F5F5F5; color: #616161; border-color: #E0E0E0; }
+        .erro { background-color: #FFEBEE; color: #B71C1C; border-color: #FFCDD2; }
+    </style>
+</head>
+<body>
+    <div class="cliente-container">
+        <div class="card">
+            <div class="logo-container">
+                <img src="/logo.jpg" alt="Logo da Cantina da Cléo">
+            </div>
+            <h2>Acompanhe seu Pedido</h2>
+            <p>Digite o número do seu pedido abaixo para ver o status.</p>
+            <form id="form-acompanhar">
+                <label for="pedido-id">Número do Pedido:</label>
+                <input type="number" id="pedido-id" placeholder="#" required>
+                <button type="submit">Buscar Pedido</button>
+            </form>
+            <div id="status-resultado"></div>
+        </div>
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="/" style="color: var(--cor-texto);">Voltar para o Cardápio</a>
+        </div>
+    </div>
+    <script>
+        document.getElementById('form-acompanhar').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const pedidoId = document.getElementById('pedido-id').value;
+            const resultadoDiv = document.getElementById('status-resultado');
+            if (!pedidoId) return;
+            try {
+                const response = await fetch(`/pedido/${pedidoId}`);
+                resultadoDiv.style.display = 'block';
+                if (response.ok) {
+                    const pedido = await response.json();
+                    let statusClasse = 'status-' + pedido.status.toLowerCase().replace(/ /g, '-');
+                    resultadoDiv.className = `status-resultado ${statusClasse}`;
+                    resultadoDiv.innerHTML = `<strong>Status:</strong> ${pedido.status}`;
+                } else {
+                    resultadoDiv.className = 'status-resultado erro';
+                    resultadoDiv.innerHTML = `Pedido #${pedidoId} não encontrado. Verifique o número e tente novamente.`;
+                }
+            } catch (error) {
+                resultadoDiv.style.display = 'block';
+                resultadoDiv.className = 'status-resultado erro';
+                resultadoDiv.innerHTML = 'Erro de conexão. Tente novamente mais tarde.';
+            }
+        });
+    </script>
+</body>
+</html>

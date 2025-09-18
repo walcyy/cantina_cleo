@@ -1,0 +1,12 @@
+# Dependências
+node_modules/
+
+# Arquivo de senhas e segredos
+.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# Arquivos do sistema
+.DS_Store

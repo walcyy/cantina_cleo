@@ -1,0 +1,269 @@
+/* =================================================================
+   ARQUIVO DE ESTILOS (VERSÃO REFINADA) - CANTINA DA CLÉO
+   ================================================================= */
+
+/* --- GERAL E FONTES --- */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Lato:wght@400;700&display=swap');
+
+:root {
+    --cor-fundo: #FDF8F0;
+    --cor-texto: #4E342E;
+    --cor-destaque: #C62828;
+    --cor-borda-suave: #D7CCC8;
+    --cor-sucesso: #2E7D32;
+    --cor-fundo-escuro: #3E2723;
+    --cor-amarelo-acento: #FFA000;
+}
+
+body {
+    font-family: 'Lato', sans-serif;
+    color: var(--cor-texto);
+    background-color: var(--cor-fundo);
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+    line-height: 1.6;
+}
+
+h1, h2, h3, h4 {
+    font-family: 'Montserrat', sans-serif;
+    text-align: center;
+}
+
+/* --- PÁGINA DO CLIENTE E ACOMPANHAMENTO --- */
+
+.cliente-container {
+    max-width: 600px;
+    margin: auto;
+}
+
+.card {
+    background-color: white;
+    padding: 30px;
+    border-radius: 16px;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.07);
+    margin-bottom: 25px;
+    border: 1px solid #EFEBE9;
+}
+
+.logo-container {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.logo-container img {
+    max-width: 140px;
+    height: auto;
+}
+
+label {
+    display: block;
+    margin-top: 15px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+input, select, textarea {
+    width: 100%;
+    padding: 12px;
+    margin-top: 5px;
+    border-radius: 8px;
+    border: 1px solid var(--cor-borda-suave);
+    background-color: #FBFBFB;
+    font-family: 'Lato', sans-serif;
+    font-size: 1em;
+    box-sizing: border-box;
+    transition: all 0.3s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--cor-destaque);
+    box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.15);
+}
+
+button {
+    width: 100%;
+    padding: 15px;
+    margin-top: 25px;
+    border-radius: 8px;
+    border: none;
+    background-color: var(--cor-destaque);
+    color: white;
+    font-weight: bold;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    transform: translateY(0);
+}
+
+button:hover {
+    background-color: #A32020;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(198, 40, 40, 0.3);
+}
+
+#mensagem {
+    margin-top: 15px; padding: 12px; border-radius: 8px;
+    text-align: center; display: none;
+}
+#mensagem.sucesso {
+    background-color: #E8F5E9; color: var(--cor-sucesso); border: 1px solid #A5D6A7;
+}
+#mensagem a {
+    color: var(--cor-sucesso);
+    font-weight: bold;
+    text-decoration: underline;
+}
+
+.pagamento-opcoes {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 15px 5px;
+    background-color: #FBFBFB;
+    border: 1px solid var(--cor-borda-suave);
+    border-radius: 8px;
+}
+
+.pagamento-opcoes div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pagamento-opcoes label {
+    margin: 0;
+    font-weight: 400;
+}
+
+.pagamento-opcoes input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--cor-borda-suave);
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    margin: 0;
+}
+
+.pagamento-opcoes input[type="radio"]:checked {
+    border: 6px solid var(--cor-destaque);
+}
+
+/* --- PAINEL DE ADMINISTRAÇÃO (ADMIN.HTML) --- */
+
+body.admin {
+    background-color: var(--cor-fundo-escuro);
+    color: #EFEBE9;
+}
+
+.admin-container {
+    max-width: 1200px;
+    margin: auto;
+}
+
+.admin .logo-container img {
+    max-width: 90px;
+    background-color: var(--cor-fundo);
+    border-radius: 50%;
+    padding: 5px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+}
+
+.admin h1.admin-title, .admin h2 {
+    border-bottom: 2px solid var(--cor-amarelo-acento);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.tab-buttons {
+    border-bottom: 1px solid #5D4037;
+    display: flex; justify-content: center; gap: 10px;
+    margin-bottom: 30px; padding-bottom: 15px;
+}
+.tab-btn {
+    border: none; background-color: transparent; color: #BCAAA4;
+    transition: all 0.3s ease; border-bottom: 3px solid transparent;
+    border-radius: 0; font-size: 1.2em; padding: 10px 25px; cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+}
+.tab-btn:hover { background-color: transparent; color: var(--cor-amarelo-acento); }
+.tab-btn.active { color: white; border-bottom-color: var(--cor-amarelo-acento); background-color: transparent; }
+
+.content-pane { display: none; }
+.content-pane.active { display: block; }
+
+.kanban-board {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+    align-items: flex-start;
+}
+.kanban-column {
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 15px;
+}
+.kanban-column h3 {
+    text-align: center;
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #555;
+}
+.pedidos-list {
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+#lista-cardapios {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+}
+.cardapio {
+    background-color: #FDF8F0; color: var(--cor-texto);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 4px solid transparent; padding: 20px; border-radius: 8px;
+    width: 280px; box-sizing: border-box; display: flex;
+    flex-direction: column; justify-content: space-between;
+}
+.cardapio:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.25); }
+.cardapio.ativo {
+    border-color: var(--cor-sucesso);
+    box-shadow: 0 0 20px rgba(46, 125, 50, 0.6);
+}
+.cardapio h4 { border-bottom: 1px solid var(--cor-borda-suave); padding-bottom: 8px; margin-top: 0; }
+.cardapio ul { padding-left: 20px; flex-grow: 1; }
+.cardapio button { font-family: 'Lato', sans-serif; background-color: #1565C0; font-size: 1em; padding: 10px; border: none; color: white; cursor: pointer; border-radius: 5px; }
+.cardapio button:hover { background-color: #0D47A1; }
+.cardapio button:disabled { background-color: var(--cor-sucesso); color: white; cursor: not-allowed; opacity: 1; }
+
+.pedido {
+    background-color: #FDF8F0; color: var(--cor-texto);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border-radius: 8px; width: 100%; padding: 15px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3); box-sizing: border-box;
+    border-left: 5px solid #6c757d;
+}
+.pedido:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.25); }
+.pedido.status-recebido { border-left-color: #6c757d; }
+.pedido.status-em-preparo { border-left-color: #FFA000; }
+.pedido.status-saiu-para-entrega { border-left-color: #1565C0; }
+.pedido-header { display: flex; justify-content: space-between; align-items: center; }
+.pedido-header span { font-weight: bold; background-color: var(--cor-amarelo-acento); color: var(--cor-texto); padding: 5px 10px; border-radius: 12px; font-size: 0.9em; }
+
+.status-buttons { display: flex; gap: 5px; margin-top: 10px; }
+.status-buttons button { flex-grow: 1; font-size: 0.8em; padding: 8px 5px; background-color: #6c757d; margin-top: 0; }
+.status-buttons button:hover { background-color: #5a6268; }
+.status-buttons .preparo-btn { background-color: #FFA000; }
+.status-buttons .entrega-btn { background-color: #1565C0; }
+.status-buttons .entregue-btn { background-color: var(--cor-sucesso); }
+
+.comprovante-link { font-weight: bold; color: var(--cor-destaque); text-decoration: underline; }
+.observacao-box { margin-top: 10px; padding: 10px; background-color: #FFF9C4; border-radius: 5px; border: 1px solid #FBC02D; }

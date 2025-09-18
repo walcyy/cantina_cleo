@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel - Cantina da Cléo</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .cardapio .delete-btn { background-color: #dc3545; font-size: 0.8em; padding: 5px 10px; margin-bottom: 10px; width: auto; float: right; border-radius: 5px; }
+        .cardapio .delete-btn:hover { background-color: #c82333; }
+        #form-novo-cardapio { background-color: #FDF8F0; color: var(--cor-texto); padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        #form-novo-cardapio input, #form-novo-cardapio textarea { width: 100%; }
+        #form-novo-cardapio button { background-color: var(--cor-sucesso); font-size: 1em; }
+    </style>
+</head>
+<body class="admin">
+    <div class="admin-container">
+        <div class="logo-container"><img src="/logo.jpg" alt="Logo da Cantina da Cléo"></div>
+        <div class="tab-buttons">
+            <button class="tab-btn active" data-tab="pedidos">Painel de Pedidos</button>
+            <button class="tab-btn" data-tab="cardapios">Gerenciar Cardápios</button>
+        </div>
+        <div class="tab-content">
+            <div id="pedidos" class="content-pane active">
+                <h1 class="admin-title">Painel da Cozinha | Total do Dia: <span id="total-dia">0</span></h1>
+                <div class="kanban-board">
+                    <div class="kanban-column">
+                        <h3>Recebidos (Em Aberto)</h3>
+                        <div id="pedidos-recebidos" class="pedidos-list"></div>
+                    </div>
+                    <div class="kanban-column">
+                        <h3>Em Preparo</h3>
+                        <div id="pedidos-preparo" class="pedidos-list"></div>
+                    </div>
+                    <div class="kanban-column">
+                        <h3>Saiu para Entrega</h3>
+                        <div id="pedidos-entrega" class="pedidos-list"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="cardapios" class="content-pane">
+                <div id="form-novo-cardapio">
+                    <h3>Adicionar Novo Cardápio</h3>
+                    <form id="form-add-cardapio">
+                        <label for="novo-nome">Nome do Cardápio:</label>
+                        <input type="text" id="novo-nome" required>
+                        <label for="novo-pratos">Pratos Principais (um por linha):</label>
+                        <textarea id="novo-pratos" rows="3" required></textarea>
+                        <label for="novo-acompanhamentos">Acompanhamentos (um por linha):</label>
+                        <textarea id="novo-acompanhamentos" rows="3"></textarea>
+                        <button type="submit">Salvar Novo Cardápio</button>
+                    </form>
+                </div>
+                <h2>Cardápios Cadastrados</h2>
+                <div id="lista-cardapios"><p>Carregando cardápios...</p></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const listaCardapiosDiv = document.getElementById('lista-cardapios');
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const contentPanes = document.querySelectorAll('.content-pane');
+        const totalDiaSpan = document.getElementById('total-dia');
+        const pedidosRecebidosDiv = document.getElementById('pedidos-recebidos');
+        const pedidosPreparoDiv = document.getElementById('pedidos-preparo');
+        const pedidosEntregaDiv = document.getElementById('pedidos-entrega');
+        
+        tabButtons.forEach(button => button.addEventListener('click', () => {
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            contentPanes.forEach(pane => pane.classList.remove('active'));
+            button.classList.add('active');
+            document.getElementById(button.getAttribute('data-tab')).classList.add('active');
+        }));
+        
+        async function carregarGerenciadorDeCardapios() {
+            try {
+                const response = await fetch('/todos-os-cardapios');
+                const cardapios = await response.json();
+                listaCardapiosDiv.innerHTML = '';
+                if (cardapios.length === 0) { listaCardapiosDiv.innerHTML = '<p>Nenhum cardápio cadastrado. Adicione um no formulário acima.</p>'; }
+                else { cardapios.forEach(c => {
+                    const cardapioDiv = document.createElement('div');
+                    cardapioDiv.className = c.isAtivo ? 'cardapio ativo' : 'cardapio';
+                    cardapioDiv.innerHTML = `
+                        <button class="delete-btn" data-id="${c.id}">Deletar</button>
+                        <h4>${c.nome}</h4>
+                        <ul>${c.pratos.map(p => `<li>${p}</li>`).join('')}</ul>
+                        <button class="ativar-btn" data-id="${c.id}" ${c.isAtivo ? 'disabled' : ''}>${c.isAtivo ? 'ATIVO' : 'Ativar este cardápio'}</button>`;
+                    listaCardapiosDiv.appendChild(cardapioDiv);
+                });}
+            } catch (error) { listaCardapiosDiv.innerHTML = '<p>Erro ao carregar os cardápios.</p>';}
+        }
+        
+        listaCardapiosDiv.addEventListener('click', async (event) => {
+            const target = event.target;
+            const cardapioId = target.getAttribute('data-id');
+            if (target.classList.contains('ativar-btn')) {
+                await fetch(`/ativar-cardapio/${cardapioId}`, { method: 'POST' });
+                carregarGerenciadorDeCardapios();
+            }
+            if (target.classList.contains('delete-btn')) {
+                if (confirm(`Tem certeza que deseja deletar o cardápio #${cardapioId}? Essa ação não pode ser desfeita.`)) {
+                    await fetch(`/cardapio/${cardapioId}`, { method: 'DELETE' });
+                    carregarGerenciadorDeCardapios();
+                }
+            }
+        });
+        
+        document.getElementById('form-add-cardapio').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = event.target;
+            const nome = form.querySelector('#novo-nome').value;
+            const pratos = form.querySelector('#novo-pratos').value.split('\n').filter(p => p.trim() !== '');
+            const acompanhamentos = form.querySelector('#novo-acompanhamentos').value.split('\n').filter(a => a.trim() !== '');
+            if (pratos.length === 0) { alert('Você precisa adicionar pelo menos um prato principal.'); return; }
+            const novoCardapio = { nome, pratos, acompanhamentos };
+            await fetch('/cardapio', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(novoCardapio)
+            });
+            form.reset();
+            carregarGerenciadorDeCardapios();
+        });
+
+        document.querySelector('.tab-content').addEventListener('click', async (event) => {
+            if (event.target.classList.contains('status-btn')) {
+                const pedidoId = event.target.getAttribute('data-id');
+                const novoStatus = event.target.getAttribute('data-status');
+                await fetch(`/pedido/${pedidoId}/status`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ novoStatus })
+                });
+                buscarPedidos();
+            }
+        });
+        
+        async function buscarTotalDoDia() {
+            try {
+                const response = await fetch('/pedidos/total-hoje');
+                const data = await response.json();
+                totalDiaSpan.textContent = data.total || 0;
+            } catch (error) { console.error("Erro ao buscar total de pedidos:", error); }
+        }
+
+        async function buscarPedidos() {
+            try {
+                const response = await fetch('/get_pedidos');
+                const pedidos = await response.json();
+                pedidosRecebidosDiv.innerHTML = ''; 
+                pedidosPreparoDiv.innerHTML = '';
+                pedidosEntregaDiv.innerHTML = '';
+                if (pedidos.filter(p => p.status !== 'Entregue').length === 0) {
+                    pedidosRecebidosDiv.innerHTML = '<p>Nenhum pedido ativo no momento.</p>';
+                }
+                pedidos.forEach(p => {
+                    if (p.status === 'Entregue') return;
+                    const pedidoCard = document.createElement('div');
+                    const statusClass = 'status-' + p.status.toLowerCase().replace(/ /g, '-');
+                    pedidoCard.className = `pedido ${statusClass}`;
+                    pedidoCard.innerHTML = `
+                        <div class="pedido-header"><h3>Pedido #${p.id}</h3><span>${p.hora}</span></div>
+                        <p><strong>Status Atual:</strong> ${p.status}</p>
+                        <p><strong>Cliente:</strong> ${p.nome}</p>
+                        <p><strong>Telefone:</strong> ${p.telefone}</p>
+                        <p><strong>Endereço:</strong> ${p.endereco}</p>
+                        <hr>
+                        <p><strong>Pagamento:</strong> ${p.forma_pagamento}</p>
+                        ${p.comprovante_pix_url ? `<a href="${p.comprovante_pix_url}" target="_blank" class="comprovante-link">Ver Comprovante PIX</a>` : ''}
+                        <hr>
+                        <p><strong>Prato:</strong> ${p.prato}</p>
+                        <p><strong>Acompanhamento:</strong> ${p.acompanhamento}</p>
+                        <p><strong>Quantidade:</strong> ${p.quantidade}</p>
+                        ${p.observacao ? `<div class="observacao-box"><strong>Observação:</strong> ${p.observacao}</div>` : ''}
+                        <hr>
+                        <div class="status-buttons">
+                            <button class="status-btn preparo-btn" data-id="${p.id}" data-status="Em Preparo">Em Preparo</button>
+                            <button class="status-btn entrega-btn" data-id="${p.id}" data-status="Saiu para Entrega">Saiu p/ Entrega</button>
+                            <button class="status-btn entregue-btn" data-id="${p.id}" data-status="Entregue">Entregue (Finalizar)</button>
+                        </div>`;
+                    if (p.status === 'Recebido') { pedidosRecebidosDiv.appendChild(pedidoCard); } 
+                    else if (p.status === 'Em Preparo') { pedidosPreparoDiv.appendChild(pedidoCard); } 
+                    else if (p.status === 'Saiu para Entrega') { pedidosEntregaDiv.appendChild(pedidoCard); }
+                });
+            } catch (error) { console.error("Erro ao buscar pedidos:", error); }
+        }
+
+        setInterval(() => {
+            if (document.getElementById('pedidos').classList.contains('active')) {
+                buscarPedidos();
+                buscarTotalDoDia();
+            }
+            if (document.getElementById('cardapios').classList.contains('active')) {
+                carregarGerenciadorDeCardapios();
+            }
+        }, 5000);
+
+        window.onload = () => {
+            buscarPedidos();
+            buscarTotalDoDia();
+            carregarGerenciadorDeCardapios();
+        };
+    </script>
+</body>
+</html>
