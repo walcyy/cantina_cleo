@@ -24,9 +24,9 @@ const upload = multer({
 
 // --- CONFIGURAÇÃO DA CONEXÃO COM O MYSQL ---
 const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'cantina_user',
-    password: 'sua_senha_forte_da_aws',
+    host: 'walcy-java.cmdqccoae231.us-east-1.rds.amazonaws.com',
+    user: 'admin',
+    password: 'walcy0803',
     database: 'cantina'
 });
 
