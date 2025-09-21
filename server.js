@@ -3,6 +3,8 @@ const path = require('path');
 const mysql = require('mysql');
 const multer = require('multer');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
+const session = require('express-session');
 
 const app = express();
 const PORT = 3000;
@@ -12,6 +14,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- CONFIGURAÇÃO DA SESSÃO DE LOGIN ---
+app.use(session({
+    secret: 'uma_chave_secreta_muito_longa_e_dificil_de_adivinhar', // IMPORTANTE: Mude para uma frase secreta sua
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // Login dura 24 horas
+}));
+
 // --- CONFIGURAÇÃO DO MULTER (UPLOAD DE ARQUIVOS) ---
 const storage = multer.diskStorage({
     destination: function (req, file, cb) { cb(null, 'public/uploads/'); },
@@ -19,14 +29,14 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }
+    limits: { fileSize: 5 * 1024 * 1024 } // Limite de 5MB
 });
 
 // --- CONFIGURAÇÃO DA CONEXÃO COM O MYSQL ---
 const db = mysql.createConnection({
     host: 'walcy-java.cmdqccoae231.us-east-1.rds.amazonaws.com',
-    user: 'admin',
-    password: 'walcy0803',
+    user: 'admin', // Usuário que criamos
+    password: 'walcy0803', // A senha que você criou na AWS
     database: 'cantina'
 });
 
@@ -35,7 +45,69 @@ db.connect((err) => {
     console.log('Conectado ao banco de dados MySQL.');
 });
 
-// --- ROTAS DA APLICAÇÃO ---
+// --- ROTAS DE AUTENTICAÇÃO E PERFIL ---
+
+app.post('/registrar', async (req, res) => {
+    const { nome, email, senha, telefone, cep, endereco, numero, bairro } = req.body;
+    if (!nome || !email || !senha || !telefone) {
+        return res.status(400).json({ status: 'erro', mensagem: 'Campos obrigatórios estão faltando.' });
+    }
+    const senhaHash = await bcrypt.hash(senha, 10);
+    const sql = "INSERT INTO clientes (nome, email, senha, telefone, cep, endereco, numero, bairro) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    db.query(sql, [nome, email, senhaHash, telefone, cep, endereco, numero, bairro], (err, result) => {
+        if (err) {
+            if (err.errno === 1062) {
+                return res.status(409).json({ status: 'erro', mensagem: 'Este e-mail já está cadastrado.' });
+            }
+            console.error(err);
+            return res.status(500).json({ status: 'erro', mensagem: 'Erro ao cadastrar cliente.' });
+        }
+        res.json({ status: 'sucesso', mensagem: 'Cliente cadastrado com sucesso!' });
+    });
+});
+
+app.post('/login', (req, res) => {
+    const { email, senha } = req.body;
+    db.query("SELECT * FROM clientes WHERE email = ?", [email], async (err, results) => {
+        if (err || results.length === 0) {
+            return res.status(401).json({ status: 'erro', mensagem: 'E-mail ou senha inválidos.' });
+        }
+        const cliente = results[0];
+        const senhaCorreta = await bcrypt.compare(senha, cliente.senha);
+        if (senhaCorreta) {
+            req.session.clienteId = cliente.id;
+            req.session.clienteNome = cliente.nome;
+            res.json({ status: 'sucesso', mensagem: 'Login efetuado com sucesso!' });
+        } else {
+            res.status(401).json({ status: 'erro', mensagem: 'E-mail ou senha inválidos.' });
+        }
+    });
+});
+
+app.post('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            return res.status(500).json({ status: 'erro', mensagem: 'Não foi possível fazer logout.' });
+        }
+        res.json({ status: 'sucesso', mensagem: 'Logout efetuado com sucesso.' });
+    });
+});
+
+app.get('/perfil', (req, res) => {
+    if (req.session.clienteId) {
+        db.query("SELECT id, nome, email, telefone, cep, endereco, numero, bairro FROM clientes WHERE id = ?", [req.session.clienteId], (err, results) => {
+            if (err || results.length === 0) {
+                return res.status(404).json({ status: 'erro', mensagem: 'Cliente não encontrado.' });
+            }
+            res.json({ status: 'logado', cliente: results[0] });
+        });
+    } else {
+        res.json({ status: 'nao_logado' });
+    }
+});
+
+
+// --- ROTAS DE PEDIDOS ---
 
 app.post('/novo_pedido', (req, res) => {
     upload.single('comprovante')(req, res, function (err) {
@@ -43,9 +115,9 @@ app.post('/novo_pedido', (req, res) => {
             console.error("Erro durante o upload:", err);
             return res.status(500).json({ status: 'erro', mensagem: 'Erro ao fazer upload do arquivo.' });
         }
-        
         const dados = req.body;
         const comprovanteUrl = req.file ? `/uploads/${req.file.filename}` : null;
+        const clienteId = req.session.clienteId || null;
 
         const sqlPrecos = "SELECT preco FROM pratos WHERE nome_prato = ? UNION ALL SELECT preco FROM acompanhamentos WHERE nome_acompanhamento = ?";
         db.query(sqlPrecos, [dados.prato, dados.acompanhamento], (err, precosResult) => {
@@ -53,14 +125,11 @@ app.post('/novo_pedido', (req, res) => {
                 console.error("Erro ao buscar preços para o pedido:", err);
                 return res.status(500).send("Erro ao verificar preços dos itens do cardápio.");
             }
-            
             const precoPrato = parseFloat(precosResult[0].preco);
             const precoAcompanhamento = parseFloat(precosResult[1].preco);
             const valorTotal = (precoPrato + precoAcompanhamento) * parseInt(dados.quantidade);
-
-            const sql = `INSERT INTO pedidos (nome_cliente, telefone, endereco, prato, acompanhamento, quantidade, hora, status, observacao, data_pedido, forma_pagamento, comprovante_pix_url, valor_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, ?, ?)`;
-            const params = [dados.nome, dados.telefone, dados.endereco, dados.prato, dados.acompanhamento, dados.quantidade, new Date().toLocaleTimeString('pt-BR'), 'Recebido', dados.observacao, dados.forma_pagamento, comprovanteUrl, valorTotal];
-            
+            const sql = `INSERT INTO pedidos (nome_cliente, telefone, endereco, prato, acompanhamento, quantidade, hora, status, observacao, data_pedido, forma_pagamento, comprovante_pix_url, valor_total, cliente_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?)`;
+            const params = [dados.nome, dados.telefone, dados.endereco, dados.prato, dados.acompanhamento, dados.quantidade, new Date().toLocaleTimeString('pt-BR'), 'Recebido', dados.observacao, dados.forma_pagamento, comprovanteUrl, valorTotal, clienteId];
             db.query(sql, params, (err, results) => {
                 if (err) { console.error(err); return res.status(500).send("Erro ao salvar pedido."); }
                 res.json({ status: 'sucesso', mensagem: 'Pedido recebido e salvo!', pedidoId: results.insertId });
@@ -84,6 +153,41 @@ app.get('/pedidos/total-hoje', (req, res) => {
         res.json(result[0]);
     });
 });
+
+app.get('/pedido/:id', (req, res) => {
+    const pedidoId = req.params.id;
+    db.query('SELECT * FROM pedidos WHERE id = ?', [pedidoId], (err, result) => {
+        if (err || result.length === 0) {
+            return res.status(404).send('Pedido não encontrado.');
+        }
+        const pedido = result[0];
+        const respostaLimpa = {
+            id: pedido.id,
+            status: pedido.status,
+            prato: pedido.prato,
+            acompanhamento: pedido.acompanhamento,
+            quantidade: pedido.quantidade,
+            observacao: pedido.observacao,
+            valor_total: pedido.valor_total,
+            forma_pagamento: pedido.forma_pagamento
+        };
+        res.json(respostaLimpa);
+    });
+});
+
+app.post('/pedido/:id/status', (req, res) => {
+    const pedidoId = req.params.id;
+    const { novoStatus } = req.body;
+    const statusPermitidos = ['Recebido', 'Em Preparo', 'Saiu para Entrega', 'Entregue'];
+    if (!statusPermitidos.includes(novoStatus)) { return res.status(400).send('Status inválido.'); }
+    db.query('UPDATE pedidos SET status = ? WHERE id = ?', [novoStatus, pedidoId], (err, result) => {
+        if (err) { console.error(err); return res.status(500).send('Erro ao atualizar status.'); }
+        res.json({ status: 'sucesso', mensagem: `Status do pedido #${pedidoId} atualizado para ${novoStatus}` });
+    });
+});
+
+
+// --- ROTAS DE CARDÁPIOS ---
 
 app.get('/cardapio-ativo', (req, res) => {
     const sql = 'SELECT * FROM cardapios WHERE ativo = TRUE';
@@ -175,42 +279,6 @@ app.post('/cardapio', (req, res) => {
     });
 });
 
-// =================================================================
-// ROTA CORRIGIDA PARA GARANTIR O FORMATO CORRETO DOS DADOS
-// =================================================================
-app.get('/pedido/:id', (req, res) => {
-    const pedidoId = req.params.id;
-    db.query('SELECT * FROM pedidos WHERE id = ?', [pedidoId], (err, result) => {
-        if (err || result.length === 0) {
-            return res.status(404).send('Pedido não encontrado.');
-        }
-        // Limpa e formata o objeto antes de enviar
-        const pedido = result[0];
-        const respostaLimpa = {
-            id: pedido.id,
-            status: pedido.status,
-            prato: pedido.prato,
-            acompanhamento: pedido.acompanhamento,
-            quantidade: pedido.quantidade,
-            observacao: pedido.observacao,
-            valor_total: pedido.valor_total,
-            forma_pagamento: pedido.forma_pagamento
-        };
-        res.json(respostaLimpa);
-    });
-});
-// =================================================================
-
-app.post('/pedido/:id/status', (req, res) => {
-    const pedidoId = req.params.id;
-    const { novoStatus } = req.body;
-    const statusPermitidos = ['Recebido', 'Em Preparo', 'Saiu para Entrega', 'Entregue'];
-    if (!statusPermitidos.includes(novoStatus)) { return res.status(400).send('Status inválido.'); }
-    db.query('UPDATE pedidos SET status = ? WHERE id = ?', [novoStatus, pedidoId], (err, result) => {
-        if (err) { console.error(err); return res.status(500).send('Erro ao atualizar status.'); }
-        res.json({ status: 'sucesso', mensagem: `Status do pedido #${pedidoId} atualizado para ${novoStatus}` });
-    });
-});
 
 // --- INICIAR O SERVIDOR ---
 app.listen(PORT, () => {

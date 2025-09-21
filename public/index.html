@@ -5,12 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cantina da Cléo - Pedidos</title>
     <link rel="stylesheet" href="/style.css">
+    
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#4E342E">
     <link rel="apple-touch-icon" href="/icon-192x192.png">
+
 </head>
 <body>
     <div class="cliente-container">
+
+        <div id="user-status">
+            </div>
+
         <div class="card">
             <div class="logo-container">
                 <img src="/logo.jpg" alt="Logo da Cantina da Cléo">
@@ -73,12 +79,42 @@
             <div id="mensagem"></div>
         </div>
     </div>
+
     <script>
+        const userStatusDiv = document.getElementById('user-status');
         const pratoSelect = document.getElementById('prato');
         const acompanhamentoSelect = document.getElementById('acompanhamento');
         const quantidadeInput = document.getElementById('quantidade');
         const totalPedidoDiv = document.getElementById('total-pedido');
-        
+        const radiosPagamento = document.querySelectorAll('input[name="forma_pagamento"]');
+        const infoPixDiv = document.getElementById('info-pix');
+        const btnCopiarPix = document.getElementById('copiar-pix');
+
+        async function verificarLogin() {
+            try {
+                const response = await fetch('/perfil');
+                const data = await response.json();
+                if (data.status === 'logado') {
+                    userStatusDiv.innerHTML = `
+                        <span>Olá, ${data.cliente.nome}!</span>
+                        <button id="logout-btn">(Sair)</button>
+                    `;
+                    document.getElementById('nome').value = data.cliente.nome;
+                    document.getElementById('telefone').value = data.cliente.telefone;
+                    document.getElementById('endereco').value = data.cliente.endereco || '';
+                    document.getElementById('logout-btn').addEventListener('click', async () => {
+                        await fetch('/logout', { method: 'POST' });
+                        window.location.reload();
+                    });
+                } else {
+                    userStatusDiv.innerHTML = `<a href="/login.html">Login</a> | <a href="/registrar.html">Cadastre-se</a>`;
+                }
+            } catch (error) {
+                console.error("Erro ao verificar status de login:", error);
+                userStatusDiv.innerHTML = `<a href="/login.html">Login</a> | <a href="/registrar.html">Cadastre-se</a>`;
+            }
+        }
+
         function formatarPreco(valor) {
             return parseFloat(valor).toFixed(2).replace('.', ',');
         }
@@ -87,12 +123,9 @@
             const pratoOption = pratoSelect.options[pratoSelect.selectedIndex];
             const acompOption = acompanhamentoSelect.options[acompanhamentoSelect.selectedIndex];
             const quantidade = parseInt(quantidadeInput.value) || 1;
-
             if (!pratoOption || !acompOption) return;
-
             const precoPrato = parseFloat(pratoOption.getAttribute('data-preco'));
             const precoAcomp = parseFloat(acompOption.getAttribute('data-preco'));
-
             const total = (precoPrato + precoAcomp) * quantidade;
             totalPedidoDiv.textContent = `Total: R$ ${formatarPreco(total)}`;
         }
@@ -107,11 +140,9 @@
                     return;
                 }
                 const cardapio = await response.json();
-                
                 tituloCardapio.textContent = cardapio.nome;
                 pratoSelect.innerHTML = '';
                 acompanhamentoSelect.innerHTML = '';
-
                 cardapio.pratos.forEach(item => {
                     const texto = `${item.nome} - R$ ${formatarPreco(item.preco)}`;
                     const option = new Option(texto, item.nome);
@@ -124,27 +155,22 @@
                     option.setAttribute('data-preco', item.preco);
                     acompanhamentoSelect.add(option);
                 });
-                
                 calcularTotal();
                 pratoSelect.addEventListener('change', calcularTotal);
                 acompanhamentoSelect.addEventListener('change', calcularTotal);
                 quantidadeInput.addEventListener('input', calcularTotal);
-
             } catch (error) {
                 console.error("Erro ao carregar cardápio:", error);
                 tituloCardapio.textContent = "Erro ao carregar o cardápio.";
             }
         }
         
-        const radiosPagamento = document.querySelectorAll('input[name="forma_pagamento"]');
-        const infoPixDiv = document.getElementById('info-pix');
         radiosPagamento.forEach(radio => {
             radio.addEventListener('change', () => {
                 infoPixDiv.style.display = (radio.value === 'PIX') ? 'block' : 'none';
             });
         });
 
-        const btnCopiarPix = document.getElementById('copiar-pix');
         btnCopiarPix.addEventListener('click', () => {
             const chavePix = "steffany&cleo@cantina_da_cleo.com";
             navigator.clipboard.writeText(chavePix).then(() => {
@@ -186,8 +212,13 @@
             mensagemDiv.style.display = 'block';
         });
 
-        window.onload = carregarCardapio;
+        // INICIALIZAÇÃO DA PÁGINA
+        document.addEventListener('DOMContentLoaded', () => {
+            verificarLogin();
+            carregarCardapio();
+        });
     </script>
+    
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

@@ -154,6 +154,40 @@ button:hover {
     border: 6px solid var(--cor-destaque);
 }
 
+
+/* --- ÁREA DO USUÁRIO LOGADO (INDEX.HTML) --- */
+#user-status {
+    text-align: right;
+    margin: -15px 10px 15px 10px;
+    font-size: 0.9em;
+}
+
+#user-status a {
+    color: var(--cor-destaque);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+#user-status a:hover {
+    text-decoration: underline;
+}
+
+#user-status span {
+    color: var(--cor-texto);
+}
+
+#logout-btn {
+    background: none;
+    border: none;
+    color: var(--cor-destaque);
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 1em;
+    font-family: 'Lato', sans-serif;
+    padding: 0;
+    margin: 0 0 0 5px;
+}
+
 /* --- PAINEL DE ADMINISTRAÇÃO (ADMIN.HTML) --- */
 
 body.admin {

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro - Cantina da Cléo</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="cliente-container">
+        <div class="card">
+            <div class="logo-container">
+                <img src="/logo.jpg" alt="Logo da Cantina da Cléo">
+            </div>
+            <h2>Crie sua Conta</h2>
+            <p style="text-align: center;">Preencha seus dados para agilizar seus futuros pedidos!</p>
+
+            <form id="form-cadastro">
+                <label for="nome">Nome Completo:</label>
+                <input type="text" id="nome" name="nome" required>
+
+                <label for="email">E-mail:</label>
+                <input type="email" id="email" name="email" required>
+
+                <label for="telefone">Telefone (com DDD):</label>
+                <input type="tel" id="telefone" name="telefone" required>
+
+                <label for="senha">Crie uma Senha:</label>
+                <input type="password" id="senha" name="senha" required>
+
+                <label for="confirmar_senha">Confirme sua Senha:</label>
+                <input type="password" id="confirmar_senha" name="confirmar_senha" required>
+                
+                <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--cor-borda-suave);">
+
+                <h3>Endereço de Entrega</h3>
+                <label for="cep">CEP:</label>
+                <input type="text" id="cep" name="cep">
+
+                <label for="endereco">Endereço (Rua, Av.):</label>
+                <input type="text" id="endereco" name="endereco">
+
+                <label for="numero">Número:</label>
+                <input type="text" id="numero" name="numero">
+                
+                <label for="bairro">Bairro:</label>
+                <input type="text" id="bairro" name="bairro">
+
+                <button type="submit">Cadastrar</button>
+            </form>
+            <div id="mensagem" style="display: none;"></div>
+             <p style="text-align: center; margin-top: 20px;">
+                Já tem conta? <a href="/login.html">Faça o login aqui!</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('form-cadastro').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const form = event.target;
+            const mensagemDiv = document.getElementById('mensagem');
+            
+            const senha = form.senha.value;
+            const confirmarSenha = form.confirmar_senha.value;
+
+            if (senha !== confirmarSenha) {
+                mensagemDiv.textContent = 'As senhas não coincidem. Tente novamente.';
+                mensagemDiv.className = 'erro';
+                mensagemDiv.style.display = 'block';
+                return;
+            }
+
+            const dadosCadastro = {
+                nome: form.nome.value,
+                email: form.email.value,
+                senha: senha,
+                telefone: form.telefone.value,
+                cep: form.cep.value,
+                endereco: form.endereco.value,
+                numero: form.numero.value,
+                bairro: form.bairro.value
+            };
+
+            try {
+                const response = await fetch('/registrar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dadosCadastro)
+                });
+
+                const resultado = await response.json();
+
+                if (response.ok) {
+                    mensagemDiv.textContent = 'Cadastro realizado com sucesso! Redirecionando para o login...';
+                    mensagemDiv.className = 'sucesso';
+                    mensagemDiv.style.display = 'block';
+                    setTimeout(() => {
+                        window.location.href = '/login.html';
+                    }, 2000); // Aguarda 2 segundos antes de redirecionar
+                } else {
+                    mensagemDiv.textContent = resultado.mensagem || 'Ocorreu um erro no cadastro.';
+                    mensagemDiv.className = 'erro';
+                    mensagemDiv.style.display = 'block';
+                }
+            } catch (error) {
+                mensagemDiv.textContent = 'Erro de conexão com o servidor. Tente novamente.';
+                mensagemDiv.className = 'erro';
+                mensagemDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

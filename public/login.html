@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Cantina da Cléo</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="cliente-container">
+        <div class="card">
+            <div class="logo-container">
+                <img src="/logo.jpg" alt="Logo da Cantina da Cléo">
+            </div>
+            <h2>Acesse sua Conta</h2>
+
+            <form id="form-login">
+                <label for="email">E-mail:</label>
+                <input type="email" id="email" name="email" required>
+
+                <label for="senha">Senha:</label>
+                <input type="password" id="senha" name="senha" required>
+
+                <button type="submit">Entrar</button>
+            </form>
+            <div id="mensagem" style="display: none;"></div>
+             <p style="text-align: center; margin-top: 20px;">
+                Ainda não tem conta? <a href="/registrar.html">Cadastre-se aqui!</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('form-login').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const form = event.target;
+            const mensagemDiv = document.getElementById('mensagem');
+
+            const dadosLogin = {
+                email: form.email.value,
+                senha: form.senha.value
+            };
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dadosLogin)
+                });
+
+                const resultado = await response.json();
+
+                if (response.ok) {
+                    mensagemDiv.textContent = 'Login efetuado com sucesso! Redirecionando para a página de pedidos...';
+                    mensagemDiv.className = 'sucesso';
+                    mensagemDiv.style.display = 'block';
+                    setTimeout(() => {
+                        window.location.href = '/index.html'; // Redireciona para a página principal de pedidos
+                    }, 1500); // Aguarda 1.5 segundos
+                } else {
+                    mensagemDiv.textContent = resultado.mensagem || 'Ocorreu um erro no login.';
+                    mensagemDiv.className = 'erro';
+                    mensagemDiv.style.display = 'block';
+                }
+            } catch (error) {
+                mensagemDiv.textContent = 'Erro de conexão com o servidor. Tente novamente.';
+                mensagemDiv.className = 'erro';
+                mensagemDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
