@@ -25,8 +25,8 @@ const upload = multer({
 // --- CONFIGURAÇÃO DA CONEXÃO COM O MYSQL ---
 const db = mysql.createConnection({
     host: 'localhost',
-    user: 'cantina_user', // Usuário que criamos
-    password: 'sua_senha_forte_da_aws', // A senha que você criou na AWS
+    user: 'cantina_user',
+    password: 'sua_senha_forte_da_aws',
     database: 'cantina'
 });
 
@@ -95,7 +95,9 @@ app.get('/cardapio-ativo', (req, res) => {
         const pratosSql = 'SELECT nome_prato as nome, preco FROM pratos WHERE cardapio_id = ?';
         const acompSql = 'SELECT nome_acompanhamento as nome, preco FROM acompanhamentos WHERE cardapio_id = ?';
         db.query(pratosSql, [cardapioAtivo.id], (err, pratosResult) => {
+            if (err) { console.error(err); return res.status(500).send("Erro ao buscar pratos."); }
             db.query(acompSql, [cardapioAtivo.id], (err, acompResult) => {
+                if (err) { console.error(err); return res.status(500).send("Erro ao buscar acompanhamentos."); }
                 const response = {
                     id: cardapioAtivo.id,
                     nome: cardapioAtivo.nome,
@@ -173,15 +175,31 @@ app.post('/cardapio', (req, res) => {
     });
 });
 
+// =================================================================
+// ROTA CORRIGIDA PARA GARANTIR O FORMATO CORRETO DOS DADOS
+// =================================================================
 app.get('/pedido/:id', (req, res) => {
     const pedidoId = req.params.id;
     db.query('SELECT * FROM pedidos WHERE id = ?', [pedidoId], (err, result) => {
         if (err || result.length === 0) {
             return res.status(404).send('Pedido não encontrado.');
         }
-        res.json(result[0]);
+        // Limpa e formata o objeto antes de enviar
+        const pedido = result[0];
+        const respostaLimpa = {
+            id: pedido.id,
+            status: pedido.status,
+            prato: pedido.prato,
+            acompanhamento: pedido.acompanhamento,
+            quantidade: pedido.quantidade,
+            observacao: pedido.observacao,
+            valor_total: pedido.valor_total,
+            forma_pagamento: pedido.forma_pagamento
+        };
+        res.json(respostaLimpa);
     });
 });
+// =================================================================
 
 app.post('/pedido/:id/status', (req, res) => {
     const pedidoId = req.params.id;
