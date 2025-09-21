@@ -43,11 +43,11 @@
                     <h3>Adicionar Novo Cardápio</h3>
                     <form id="form-add-cardapio">
                         <label for="novo-nome">Nome do Cardápio:</label>
-                        <input type="text" id="novo-nome" required>
-                        <label for="novo-pratos">Pratos Principais (um por linha):</label>
-                        <textarea id="novo-pratos" rows="3" required></textarea>
-                        <label for="novo-acompanhamentos">Acompanhamentos (um por linha):</label>
-                        <textarea id="novo-acompanhamentos" rows="3"></textarea>
+                        <input type="text" id="novo-nome" placeholder="Ex: Sexta-feira Especial" required>
+                        <label for="novo-pratos">Pratos Principais (um por linha, formato: NOME;PREÇO):</label>
+                        <textarea id="novo-pratos" rows="3" placeholder="Ex: Frango Assado;17.50" required></textarea>
+                        <label for="novo-acompanhamentos">Acompanhamentos (um por linha, formato: NOME;PREÇO):</label>
+                        <textarea id="novo-acompanhamentos" rows="3" placeholder="Ex: Porção de Fritas;5.00&#10;Arroz;0.00 (se for incluso)"></textarea>
                         <button type="submit">Salvar Novo Cardápio</button>
                     </form>
                 </div>
@@ -161,7 +161,7 @@
                     pedidoCard.className = `pedido ${statusClass}`;
                     pedidoCard.innerHTML = `
                         <div class="pedido-header"><h3>Pedido #${p.id}</h3><span>${p.hora}</span></div>
-                        <p><strong>Status Atual:</strong> ${p.status}</p>
+                        <p><strong>Valor Total: R$ ${p.valor_total ? parseFloat(p.valor_total).toFixed(2).replace('.', ',') : 'N/A'}</strong></p>
                         <p><strong>Cliente:</strong> ${p.nome}</p>
                         <p><strong>Telefone:</strong> ${p.telefone}</p>
                         <p><strong>Endereço:</strong> ${p.endereco}</p>

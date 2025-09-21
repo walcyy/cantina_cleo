@@ -16,6 +16,21 @@
         .status-saiu-para-entrega { background-color: #E8F5E9; color: #1B5E20; border-color: #A5D6A7; }
         .status-entregue { background-color: #F5F5F5; color: #616161; border-color: #E0E0E0; }
         .erro { background-color: #FFEBEE; color: #B71C1C; border-color: #FFCDD2; }
+        
+        #detalhes-pedido {
+            display: none;
+            text-align: left;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--cor-borda-suave);
+        }
+        #detalhes-pedido p {
+            margin: 8px 0;
+            font-size: 1.1em;
+        }
+        #detalhes-pedido h4 {
+            margin-top: 0;
+        }
     </style>
 </head>
 <body>
@@ -31,26 +46,51 @@
                 <input type="number" id="pedido-id" placeholder="#" required>
                 <button type="submit">Buscar Pedido</button>
             </form>
+
             <div id="status-resultado"></div>
+            <div id="detalhes-pedido"></div>
+
         </div>
         <div style="text-align: center; margin-top: 20px;">
             <a href="/" style="color: var(--cor-texto);">Voltar para o Cardápio</a>
         </div>
     </div>
+
     <script>
         document.getElementById('form-acompanhar').addEventListener('submit', async (event) => {
             event.preventDefault();
             const pedidoId = document.getElementById('pedido-id').value;
             const resultadoDiv = document.getElementById('status-resultado');
+            const detalhesDiv = document.getElementById('detalhes-pedido');
+            
             if (!pedidoId) return;
+
+            resultadoDiv.style.display = 'none';
+            detalhesDiv.style.display = 'none';
+            detalhesDiv.innerHTML = '';
+
             try {
                 const response = await fetch(`/pedido/${pedidoId}`);
                 resultadoDiv.style.display = 'block';
+
                 if (response.ok) {
                     const pedido = await response.json();
+                    
                     let statusClasse = 'status-' + pedido.status.toLowerCase().replace(/ /g, '-');
                     resultadoDiv.className = `status-resultado ${statusClasse}`;
                     resultadoDiv.innerHTML = `<strong>Status:</strong> ${pedido.status}`;
+
+                    detalhesDiv.style.display = 'block';
+                    detalhesDiv.innerHTML = `
+                        <h4>Resumo do Pedido #${pedido.id}</h4>
+                        <p><strong>Prato:</strong> ${pedido.prato}</p>
+                        <p><strong>Acompanhamento:</strong> ${pedido.acompanhamento}</p>
+                        <p><strong>Quantidade:</strong> ${pedido.quantidade}</p>
+                        <p><strong>Observação:</strong> ${pedido.observacao || 'Nenhuma'}</p>
+                        <hr style="border: 0; border-top: 1px solid var(--cor-borda-suave);">
+                        <p><strong>Valor Total: R$ ${parseFloat(pedido.valor_total).toFixed(2).replace('.', ',')}</strong></p>
+                        <p><strong>Pagamento:</strong> ${pedido.forma_pagamento}</p>
+                    `;
                 } else {
                     resultadoDiv.className = 'status-resultado erro';
                     resultadoDiv.innerHTML = `Pedido #${pedidoId} não encontrado. Verifique o número e tente novamente.`;

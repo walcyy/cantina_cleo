@@ -2,58 +2,69 @@ const express = require('express');
 const path = require('path');
 const mysql = require('mysql');
 const multer = require('multer');
+const cors = require('cors');
 
 const app = express();
 const PORT = 3000;
 
+// --- CONFIGURAÇÕES PRINCIPAIS ---
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
 // --- CONFIGURAÇÃO DO MULTER (UPLOAD DE ARQUIVOS) ---
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'public/uploads/');
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname);
-    }
+    destination: function (req, file, cb) { cb(null, 'public/uploads/'); },
+    filename: function (req, file, cb) { cb(null, Date.now() + '-' + file.originalname); }
 });
-const upload = multer({ storage: storage });
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }
+});
 
 // --- CONFIGURAÇÃO DA CONEXÃO COM O MYSQL ---
 const db = mysql.createConnection({
-    host: 'walcy-java.cmdqccoae231.us-east-1.rds.amazonaws.com',
-    user: 'admin',
-    password: 'walcy0803', // <<< COLOQUE SUA SENHA AQUI
+    host: 'localhost',
+    user: 'cantina_user', // Usuário que criamos
+    password: 'sua_senha_forte_da_aws', // A senha que você criou na AWS
     database: 'cantina'
 });
 
 db.connect((err) => {
-    if (err) {
-        console.error('!!! ERRO AO CONECTAR COM O MYSQL !!!', err);
-        throw err;
-    }
+    if (err) { console.error('!!! ERRO AO CONECTAR COM O MYSQL !!!', err); throw err; }
     console.log('Conectado ao banco de dados MySQL.');
 });
 
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
 // --- ROTAS DA APLICAÇÃO ---
 
-app.post('/novo_pedido', upload.single('comprovante'), (req, res) => {
-    const dados = req.body;
-    const comprovanteUrl = req.file ? `/uploads/${req.file.filename}` : null;
-
-    const sql = `INSERT INTO pedidos (nome_cliente, telefone, endereco, prato, acompanhamento, quantidade, hora, status, observacao, data_pedido, forma_pagamento, comprovante_pix_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, ?)`;
-    const params = [dados.nome, dados.telefone, dados.endereco, dados.prato, dados.acompanhamento, dados.quantidade, new Date().toLocaleTimeString('pt-BR'), 'Recebido', dados.observacao, dados.forma_pagamento, comprovanteUrl];
-    
-    db.query(sql, params, (err, results) => {
-        if (err) { 
-            console.error(err); 
-            return res.status(500).send("Erro ao salvar pedido."); 
+app.post('/novo_pedido', (req, res) => {
+    upload.single('comprovante')(req, res, function (err) {
+        if (err) {
+            console.error("Erro durante o upload:", err);
+            return res.status(500).json({ status: 'erro', mensagem: 'Erro ao fazer upload do arquivo.' });
         }
-        res.json({ 
-            status: 'sucesso', 
-            mensagem: 'Pedido recebido e salvo!',
-            pedidoId: results.insertId 
+        
+        const dados = req.body;
+        const comprovanteUrl = req.file ? `/uploads/${req.file.filename}` : null;
+
+        const sqlPrecos = "SELECT preco FROM pratos WHERE nome_prato = ? UNION ALL SELECT preco FROM acompanhamentos WHERE nome_acompanhamento = ?";
+        db.query(sqlPrecos, [dados.prato, dados.acompanhamento], (err, precosResult) => {
+            if (err || precosResult.length < 2) {
+                console.error("Erro ao buscar preços para o pedido:", err);
+                return res.status(500).send("Erro ao verificar preços dos itens do cardápio.");
+            }
+            
+            const precoPrato = parseFloat(precosResult[0].preco);
+            const precoAcompanhamento = parseFloat(precosResult[1].preco);
+            const valorTotal = (precoPrato + precoAcompanhamento) * parseInt(dados.quantidade);
+
+            const sql = `INSERT INTO pedidos (nome_cliente, telefone, endereco, prato, acompanhamento, quantidade, hora, status, observacao, data_pedido, forma_pagamento, comprovante_pix_url, valor_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, ?, ?)`;
+            const params = [dados.nome, dados.telefone, dados.endereco, dados.prato, dados.acompanhamento, dados.quantidade, new Date().toLocaleTimeString('pt-BR'), 'Recebido', dados.observacao, dados.forma_pagamento, comprovanteUrl, valorTotal];
+            
+            db.query(sql, params, (err, results) => {
+                if (err) { console.error(err); return res.status(500).send("Erro ao salvar pedido."); }
+                res.json({ status: 'sucesso', mensagem: 'Pedido recebido e salvo!', pedidoId: results.insertId });
+            });
         });
     });
 });
@@ -81,15 +92,15 @@ app.get('/cardapio-ativo', (req, res) => {
             return res.status(404).json({ mensagem: "Nenhum cardápio ativo no momento." });
         }
         const cardapioAtivo = cardapiosResult[0];
-        const pratosSql = 'SELECT nome_prato FROM pratos WHERE cardapio_id = ?';
-        const acompSql = 'SELECT nome_acompanhamento FROM acompanhamentos WHERE cardapio_id = ?';
+        const pratosSql = 'SELECT nome_prato as nome, preco FROM pratos WHERE cardapio_id = ?';
+        const acompSql = 'SELECT nome_acompanhamento as nome, preco FROM acompanhamentos WHERE cardapio_id = ?';
         db.query(pratosSql, [cardapioAtivo.id], (err, pratosResult) => {
             db.query(acompSql, [cardapioAtivo.id], (err, acompResult) => {
                 const response = {
                     id: cardapioAtivo.id,
                     nome: cardapioAtivo.nome,
-                    pratos: pratosResult.map(p => p.nome_prato),
-                    acompanhamentos: acompResult.map(a => a.nome_acompanhamento)
+                    pratos: pratosResult,
+                    acompanhamentos: acompResult
                 };
                 res.json(response);
             });
@@ -148,11 +159,15 @@ app.post('/cardapio', (req, res) => {
     db.query('INSERT INTO cardapios (nome) VALUES (?)', [nome], (err, result) => {
         if (err) { console.error("Erro ao inserir cardápio:", err); return res.status(500).json({ status: 'erro', mensagem: 'Erro no servidor.' }); }
         const novoCardapioId = result.insertId;
-        const pratosValues = pratos.map(p => [p, novoCardapioId]);
-        db.query('INSERT INTO pratos (nome_prato, cardapio_id) VALUES ?', [pratosValues], (err, result) => { if (err) { console.error("Erro ao inserir pratos:", err); } });
+        const pratosValues = pratos.map(p => { const [nomeItem, preco] = p.split(';'); return [nomeItem.trim(), parseFloat(preco) || 0, novoCardapioId]; });
+        if(pratosValues.length > 0) {
+            db.query('INSERT INTO pratos (nome_prato, preco, cardapio_id) VALUES ?', [pratosValues], (err, result) => { if (err) { console.error("Erro ao inserir pratos:", err); } });
+        }
         if (acompanhamentos && acompanhamentos.length > 0) {
-            const acompanhamentosValues = acompanhamentos.map(a => [a, novoCardapioId]);
-            db.query('INSERT INTO acompanhamentos (nome_acompanhamento, cardapio_id) VALUES ?', [acompanhamentosValues], (err, result) => { if (err) { console.error("Erro ao inserir acompanhamentos:", err); } });
+            const acompanhamentosValues = acompanhamentos.map(a => { const [nomeItem, preco] = a.split(';'); return [nomeItem.trim(), parseFloat(preco) || 0, novoCardapioId]; });
+            if(acompanhamentosValues.length > 0) {
+                db.query('INSERT INTO acompanhamentos (nome_acompanhamento, preco, cardapio_id) VALUES ?', [acompanhamentosValues], (err, result) => { if (err) { console.error("Erro ao inserir acompanhamentos:", err); } });
+            }
         }
         res.json({ status: 'sucesso', mensagem: 'Cardápio adicionado com sucesso!' });
     });
@@ -160,7 +175,7 @@ app.post('/cardapio', (req, res) => {
 
 app.get('/pedido/:id', (req, res) => {
     const pedidoId = req.params.id;
-    db.query('SELECT id, status FROM pedidos WHERE id = ?', [pedidoId], (err, result) => {
+    db.query('SELECT * FROM pedidos WHERE id = ?', [pedidoId], (err, result) => {
         if (err || result.length === 0) {
             return res.status(404).send('Pedido não encontrado.');
         }
@@ -172,9 +187,7 @@ app.post('/pedido/:id/status', (req, res) => {
     const pedidoId = req.params.id;
     const { novoStatus } = req.body;
     const statusPermitidos = ['Recebido', 'Em Preparo', 'Saiu para Entrega', 'Entregue'];
-    if (!statusPermitidos.includes(novoStatus)) {
-        return res.status(400).send('Status inválido.');
-    }
+    if (!statusPermitidos.includes(novoStatus)) { return res.status(400).send('Status inválido.'); }
     db.query('UPDATE pedidos SET status = ? WHERE id = ?', [novoStatus, pedidoId], (err, result) => {
         if (err) { console.error(err); return res.status(500).send('Erro ao atualizar status.'); }
         res.json({ status: 'sucesso', mensagem: `Status do pedido #${pedidoId} atualizado para ${novoStatus}` });
