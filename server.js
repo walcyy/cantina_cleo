@@ -29,14 +29,14 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 } // Limite de 5MB
+    limits: { fileSize: 5 * 1024 * 1024 }
 });
 
 // --- CONFIGURAÇÃO DA CONEXÃO COM O MYSQL ---
 const db = mysql.createConnection({
     host: 'walcy-java.cmdqccoae231.us-east-1.rds.amazonaws.com',
-    user: 'admin', // Usuário que criamos
-    password: 'walcy0803', // A senha que você criou na AWS
+    user: 'admin',
+    password: 'walcy0803',
     database: 'cantina'
 });
 
@@ -56,9 +56,7 @@ app.post('/registrar', async (req, res) => {
     const sql = "INSERT INTO clientes (nome, email, senha, telefone, cep, endereco, numero, bairro) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     db.query(sql, [nome, email, senhaHash, telefone, cep, endereco, numero, bairro], (err, result) => {
         if (err) {
-            if (err.errno === 1062) {
-                return res.status(409).json({ status: 'erro', mensagem: 'Este e-mail já está cadastrado.' });
-            }
+            if (err.errno === 1062) { return res.status(409).json({ status: 'erro', mensagem: 'Este e-mail já está cadastrado.' }); }
             console.error(err);
             return res.status(500).json({ status: 'erro', mensagem: 'Erro ao cadastrar cliente.' });
         }
@@ -86,9 +84,7 @@ app.post('/login', (req, res) => {
 
 app.post('/logout', (req, res) => {
     req.session.destroy((err) => {
-        if (err) {
-            return res.status(500).json({ status: 'erro', mensagem: 'Não foi possível fazer logout.' });
-        }
+        if (err) { return res.status(500).json({ status: 'erro', mensagem: 'Não foi possível fazer logout.' }); }
         res.json({ status: 'sucesso', mensagem: 'Logout efetuado com sucesso.' });
     });
 });
@@ -96,14 +92,27 @@ app.post('/logout', (req, res) => {
 app.get('/perfil', (req, res) => {
     if (req.session.clienteId) {
         db.query("SELECT id, nome, email, telefone, cep, endereco, numero, bairro FROM clientes WHERE id = ?", [req.session.clienteId], (err, results) => {
-            if (err || results.length === 0) {
-                return res.status(404).json({ status: 'erro', mensagem: 'Cliente não encontrado.' });
-            }
+            if (err || results.length === 0) { return res.status(404).json({ status: 'erro', mensagem: 'Cliente não encontrado.' }); }
             res.json({ status: 'logado', cliente: results[0] });
         });
     } else {
         res.json({ status: 'nao_logado' });
     }
+});
+
+app.get('/meus-pedidos', (req, res) => {
+    if (!req.session.clienteId) {
+        return res.status(401).json({ status: 'erro', mensagem: 'Acesso não autorizado. Por favor, faça o login.' });
+    }
+    const clienteId = req.session.clienteId;
+    const sql = "SELECT * FROM pedidos WHERE cliente_id = ? ORDER BY data_pedido DESC, id DESC";
+    db.query(sql, [clienteId], (err, results) => {
+        if (err) {
+            console.error("Erro ao buscar histórico de pedidos:", err);
+            return res.status(500).json({ status: 'erro', mensagem: 'Erro no servidor.' });
+        }
+        res.json(results);
+    });
 });
 
 
@@ -162,13 +171,9 @@ app.get('/pedido/:id', (req, res) => {
         }
         const pedido = result[0];
         const respostaLimpa = {
-            id: pedido.id,
-            status: pedido.status,
-            prato: pedido.prato,
-            acompanhamento: pedido.acompanhamento,
-            quantidade: pedido.quantidade,
-            observacao: pedido.observacao,
-            valor_total: pedido.valor_total,
+            id: pedido.id, status: pedido.status, prato: pedido.prato,
+            acompanhamento: pedido.acompanhamento, quantidade: pedido.quantidade,
+            observacao: pedido.observacao, valor_total: pedido.valor_total,
             forma_pagamento: pedido.forma_pagamento
         };
         res.json(respostaLimpa);
@@ -186,15 +191,11 @@ app.post('/pedido/:id/status', (req, res) => {
     });
 });
 
-
 // --- ROTAS DE CARDÁPIOS ---
-
 app.get('/cardapio-ativo', (req, res) => {
     const sql = 'SELECT * FROM cardapios WHERE ativo = TRUE';
     db.query(sql, (err, cardapiosResult) => {
-        if (err || cardapiosResult.length === 0) {
-            return res.status(404).json({ mensagem: "Nenhum cardápio ativo no momento." });
-        }
+        if (err || cardapiosResult.length === 0) { return res.status(404).json({ mensagem: "Nenhum cardápio ativo no momento." }); }
         const cardapioAtivo = cardapiosResult[0];
         const pratosSql = 'SELECT nome_prato as nome, preco FROM pratos WHERE cardapio_id = ?';
         const acompSql = 'SELECT nome_acompanhamento as nome, preco FROM acompanhamentos WHERE cardapio_id = ?';
@@ -202,13 +203,7 @@ app.get('/cardapio-ativo', (req, res) => {
             if (err) { console.error(err); return res.status(500).send("Erro ao buscar pratos."); }
             db.query(acompSql, [cardapioAtivo.id], (err, acompResult) => {
                 if (err) { console.error(err); return res.status(500).send("Erro ao buscar acompanhamentos."); }
-                const response = {
-                    id: cardapioAtivo.id,
-                    nome: cardapioAtivo.nome,
-                    pratos: pratosResult,
-                    acompanhamentos: acompResult
-                };
-                res.json(response);
+                res.json({ id: cardapioAtivo.id, nome: cardapioAtivo.nome, pratos: pratosResult, acompanhamentos: acompResult });
             });
         });
     });
@@ -228,12 +223,10 @@ app.get('/todos-os-cardapios', (req, res) => {
                 });
             });
         });
-        Promise.all(promessas)
-            .then(cardapiosCompletos => res.json(cardapiosCompletos))
-            .catch(error => {
-                console.error("Erro ao montar os cardápios completos:", error);
-                res.status(500).send("Erro ao processar os cardápios.");
-            });
+        Promise.all(promessas).then(cardapiosCompletos => res.json(cardapiosCompletos)).catch(error => {
+            console.error("Erro ao montar os cardápios completos:", error);
+            res.status(500).send("Erro ao processar os cardápios.");
+        });
     });
 });
 
@@ -259,9 +252,7 @@ app.delete('/cardapio/:id', (req, res) => {
 
 app.post('/cardapio', (req, res) => {
     const { nome, pratos, acompanhamentos } = req.body;
-    if (!nome || !pratos || pratos.length === 0) {
-        return res.status(400).json({ status: 'erro', mensagem: 'Nome e Pratos são obrigatórios.' });
-    }
+    if (!nome || !pratos || pratos.length === 0) { return res.status(400).json({ status: 'erro', mensagem: 'Nome e Pratos são obrigatórios.' }); }
     db.query('INSERT INTO cardapios (nome) VALUES (?)', [nome], (err, result) => {
         if (err) { console.error("Erro ao inserir cardápio:", err); return res.status(500).json({ status: 'erro', mensagem: 'Erro no servidor.' }); }
         const novoCardapioId = result.insertId;
@@ -278,7 +269,6 @@ app.post('/cardapio', (req, res) => {
         res.json({ status: 'sucesso', mensagem: 'Cardápio adicionado com sucesso!' });
     });
 });
-
 
 // --- INICIAR O SERVIDOR ---
 app.listen(PORT, () => {

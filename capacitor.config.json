@@ -1,0 +1,6 @@
+{
+  "appId": "com.cantinadacleo.app",
+  "appName": "Cantina da Cleo",
+  "webDir": "public",
+  "bundledWebRuntime": false
+}

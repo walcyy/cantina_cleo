@@ -4,6 +4,9 @@ node_modules/
 # Arquivo de senhas e segredos
 .env
 
+# Pasta de build do Android
+/android
+
 # Logs
 *.log
 npm-debug.log*

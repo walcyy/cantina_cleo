@@ -9,7 +9,6 @@
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#4E342E">
     <link rel="apple-touch-icon" href="/icon-192x192.png">
-
 </head>
 <body>
     <div class="cliente-container">
@@ -22,7 +21,7 @@
                 <img src="/logo.jpg" alt="Logo da Cantina da Cléo">
             </div>
             <p style="text-align: center;">Faça seu pedido online de forma rápida e fácil!</p>
-            <a href="/acompanhar.html" style="display: block; text-align: center; margin-top: 10px; color: var(--cor-destaque);">Acompanhar meu Pedido</a>
+            <a href="/acompanhar.html" style="display: block; text-align: center; margin-top: 10px; color: var(--cor-destaque);">Acompanhar Pedido por Número</a>
         </div>
         <div class="card">
             <h2 id="nome-cardapio">Carregando cardápio...</h2>
@@ -86,10 +85,7 @@
         const acompanhamentoSelect = document.getElementById('acompanhamento');
         const quantidadeInput = document.getElementById('quantidade');
         const totalPedidoDiv = document.getElementById('total-pedido');
-        const radiosPagamento = document.querySelectorAll('input[name="forma_pagamento"]');
-        const infoPixDiv = document.getElementById('info-pix');
-        const btnCopiarPix = document.getElementById('copiar-pix');
-
+        
         async function verificarLogin() {
             try {
                 const response = await fetch('/perfil');
@@ -97,6 +93,7 @@
                 if (data.status === 'logado') {
                     userStatusDiv.innerHTML = `
                         <span>Olá, ${data.cliente.nome}!</span>
+                        <a href="/meus-pedidos.html">Meus Pedidos</a>
                         <button id="logout-btn">(Sair)</button>
                     `;
                     document.getElementById('nome').value = data.cliente.nome;
@@ -107,11 +104,14 @@
                         window.location.reload();
                     });
                 } else {
-                    userStatusDiv.innerHTML = `<a href="/login.html">Login</a> | <a href="/registrar.html">Cadastre-se</a>`;
+                    userStatusDiv.innerHTML = `
+                        <a href="/login.html" class="auth-button">Login</a>
+                        <a href="/registrar.html" class="auth-button">Cadastre-se</a>
+                    `;
                 }
             } catch (error) {
                 console.error("Erro ao verificar status de login:", error);
-                userStatusDiv.innerHTML = `<a href="/login.html">Login</a> | <a href="/registrar.html">Cadastre-se</a>`;
+                userStatusDiv.innerHTML = `<a href="/login.html" class="auth-button">Login</a> | <a href="/registrar.html" class="auth-button">Cadastre-se</a>`;
             }
         }
 
@@ -165,12 +165,15 @@
             }
         }
         
+        const radiosPagamento = document.querySelectorAll('input[name="forma_pagamento"]');
+        const infoPixDiv = document.getElementById('info-pix');
         radiosPagamento.forEach(radio => {
             radio.addEventListener('change', () => {
                 infoPixDiv.style.display = (radio.value === 'PIX') ? 'block' : 'none';
             });
         });
 
+        const btnCopiarPix = document.getElementById('copiar-pix');
         btnCopiarPix.addEventListener('click', () => {
             const chavePix = "steffany&cleo@cantina_da_cleo.com";
             navigator.clipboard.writeText(chavePix).then(() => {
@@ -212,7 +215,6 @@
             mensagemDiv.style.display = 'block';
         });
 
-        // INICIALIZAÇÃO DA PÁGINA
         document.addEventListener('DOMContentLoaded', () => {
             verificarLogin();
             carregarCardapio();

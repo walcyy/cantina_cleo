@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meus Pedidos - Cantina da Cléo</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .pedido-historico {
+            border: 1px solid var(--cor-borda-suave);
+            border-left: 5px solid var(--cor-amarelo-acento);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        .pedido-historico-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--cor-borda-suave);
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .pedido-historico-header h4 { margin: 0; }
+        .pedido-historico p { margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <div class="cliente-container">
+        <div class="card">
+            <div class="logo-container">
+                <img src="/logo.jpg" alt="Logo da Cantina da Cléo">
+            </div>
+            <h2>Meus Pedidos</h2>
+            <div id="lista-meus-pedidos">
+                <p>Carregando seu histórico de pedidos...</p>
+            </div>
+        </div>
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="/" style="color: var(--cor-texto);">Fazer um Novo Pedido</a>
+        </div>
+    </div>
+
+    <script>
+        async function carregarHistorico() {
+            const listaDiv = document.getElementById('lista-meus-pedidos');
+
+            // Primeiro, verifica se o usuário está logado usando a rota /perfil
+            const perfilResponse = await fetch('/perfil');
+            const perfilData = await perfilResponse.json();
+
+            if (perfilData.status !== 'logado') {
+                // Se não estiver logado, redireciona para a página de login
+                window.location.href = '/login.html';
+                return;
+            }
+
+            try {
+                const response = await fetch('/meus-pedidos');
+                const pedidos = await response.json();
+
+                if (pedidos.length === 0) {
+                    listaDiv.innerHTML = '<p>Você ainda não fez nenhum pedido.</p>';
+                    return;
+                }
+
+                listaDiv.innerHTML = ''; // Limpa a mensagem de "carregando"
+
+                pedidos.forEach(p => {
+                    const pedidoDiv = document.createElement('div');
+                    pedidoDiv.className = 'pedido-historico';
+                    
+                    const dataPedido = new Date(p.data_pedido).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+
+                    pedidoDiv.innerHTML = `
+                        <div class="pedido-historico-header">
+                            <h4>Pedido #${p.id}</h4>
+                            <span>${dataPedido}</span>
+                        </div>
+                        <p><strong>Status:</strong> ${p.status}</p>
+                        <p><strong>Itens:</strong> ${p.prato} com ${p.acompanhamento}</p>
+                        <p><strong>Valor Total:</strong> R$ ${parseFloat(p.valor_total).toFixed(2).replace('.', ',')}</p>
+                    `;
+                    listaDiv.appendChild(pedidoDiv);
+                });
+
+            } catch (error) {
+                console.error("Erro ao carregar histórico:", error);
+                listaDiv.innerHTML = '<p>Ocorreu um erro ao buscar seu histórico. Tente novamente mais tarde.</p>';
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', carregarHistorico);
+    </script>
+</body>
+</html>
