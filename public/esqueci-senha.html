@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <title>Recuperar Senha - Cantina da Cléo</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="cliente-container">
+        <div class="card">
+            <div class="logo-container"><img src="/logo.jpg" alt="Logo da Cantina da Cléo"></div>
+            <h2>Recuperar Senha</h2>
+            <p style="text-align: center;">Digite seu e-mail de cadastro. Enviaremos um link para você criar uma nova senha.</p>
+            <form id="form-recuperar">
+                <label for="email">E-mail:</label>
+                <input type="email" id="email" required>
+                <button type="submit">Enviar Link de Recuperação</button>
+            </form>
+            <div id="mensagem"></div>
+        </div>
+    </div>
+    <script>
+        document.getElementById('form-recuperar').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const mensagemDiv = document.getElementById('mensagem');
+            
+            const response = await fetch('/solicitar-recuperacao', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const resultado = await response.json();
+            mensagemDiv.textContent = resultado.mensagem;
+            mensagemDiv.className = 'sucesso';
+            mensagemDiv.style.display = 'block';
+        });
+    </script>
+</body>
+</html>

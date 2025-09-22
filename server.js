@@ -5,6 +5,10 @@ const multer = require('multer');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+
+require('dotenv').config(); // Carrega as variáveis do arquivo .env
 
 const app = express();
 const PORT = 3000;
@@ -29,20 +33,29 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }
+    limits: { fileSize: 5 * 1024 * 1024 } // Limite de 5MB
 });
 
 // --- CONFIGURAÇÃO DA CONEXÃO COM O MYSQL ---
 const db = mysql.createConnection({
-    host: 'walcy-java.cmdqccoae231.us-east-1.rds.amazonaws.com',
-    user: 'admin',
-    password: 'walcy0803',
-    database: 'cantina'
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE
 });
 
 db.connect((err) => {
     if (err) { console.error('!!! ERRO AO CONECTAR COM O MYSQL !!!', err); throw err; }
     console.log('Conectado ao banco de dados MySQL.');
+});
+
+// --- CONFIGURAÇÃO DO NODEMAILER (GMAIL) ---
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD
+    }
 });
 
 // --- ROTAS DE AUTENTICAÇÃO E PERFIL ---
@@ -102,16 +115,57 @@ app.get('/perfil', (req, res) => {
 
 app.get('/meus-pedidos', (req, res) => {
     if (!req.session.clienteId) {
-        return res.status(401).json({ status: 'erro', mensagem: 'Acesso não autorizado. Por favor, faça o login.' });
+        return res.status(401).json({ status: 'erro', mensagem: 'Acesso não autorizado.' });
     }
     const clienteId = req.session.clienteId;
     const sql = "SELECT * FROM pedidos WHERE cliente_id = ? ORDER BY data_pedido DESC, id DESC";
     db.query(sql, [clienteId], (err, results) => {
-        if (err) {
-            console.error("Erro ao buscar histórico de pedidos:", err);
-            return res.status(500).json({ status: 'erro', mensagem: 'Erro no servidor.' });
-        }
+        if (err) { console.error("Erro ao buscar histórico de pedidos:", err); return res.status(500).json({ status: 'erro', mensagem: 'Erro no servidor.' }); }
         res.json(results);
+    });
+});
+
+// --- ROTAS DE RECUPERAÇÃO DE SENHA ---
+
+app.post('/solicitar-recuperacao', (req, res) => {
+    const { email } = req.body;
+    db.query('SELECT * FROM clientes WHERE email = ?', [email], (err, results) => {
+        if (err || results.length === 0) {
+            return res.json({ status: 'sucesso', mensagem: 'Se uma conta com este e-mail existir, um link de recuperação foi enviado.' });
+        }
+        const cliente = results[0];
+        const token = crypto.randomBytes(20).toString('hex');
+        const expiracao = new Date(Date.now() + 3600000); // 1 hora
+        db.query('UPDATE clientes SET token_recuperacao = ?, token_expiracao = ? WHERE id = ?', [token, expiracao, cliente.id], (err, result) => {
+            if (err) { return res.status(500).send('Erro no servidor.'); }
+            const mailOptions = {
+                from: process.env.GMAIL_USER,
+                to: cliente.email,
+                subject: 'Recuperação de Senha - Cantina da Cléo',
+                html: `<p>Olá, ${cliente.nome}.</p><p>Você solicitou a redefinição de senha. Clique no link abaixo para criar uma nova senha:</p><a href="http://SEU_IP_PUBLICO:3000/redefinir-senha.html?token=${token}">Redefinir Senha</a><p>Este link expira em 1 hora.</p>`
+            };
+            transporter.sendMail(mailOptions, (err, info) => {
+                if (err) { console.error("Erro ao enviar e-mail:", err); }
+                 return res.json({ status: 'sucesso', mensagem: 'Se uma conta com este e-mail existir, um link de recuperação foi enviado.' });
+            });
+        });
+    });
+});
+
+app.post('/redefinir-senha', async (req, res) => {
+    const { token, novaSenha } = req.body;
+    const sql = "SELECT * FROM clientes WHERE token_recuperacao = ? AND token_expiracao > NOW()";
+    db.query(sql, [token], async (err, results) => {
+        if (err || results.length === 0) {
+            return res.status(400).json({ status: 'erro', mensagem: 'Token inválido ou expirado.' });
+        }
+        const cliente = results[0];
+        const senhaHash = await bcrypt.hash(novaSenha, 10);
+        const updateSql = "UPDATE clientes SET senha = ?, token_recuperacao = NULL, token_expiracao = NULL WHERE id = ?";
+        db.query(updateSql, [senhaHash, cliente.id], (err, result) => {
+            if (err) { return res.status(500).send('Erro ao atualizar a senha.'); }
+            res.json({ status: 'sucesso', mensagem: 'Senha redefinida com sucesso!' });
+        });
     });
 });
 
@@ -127,7 +181,6 @@ app.post('/novo_pedido', (req, res) => {
         const dados = req.body;
         const comprovanteUrl = req.file ? `/uploads/${req.file.filename}` : null;
         const clienteId = req.session.clienteId || null;
-
         const sqlPrecos = "SELECT preco FROM pratos WHERE nome_prato = ? UNION ALL SELECT preco FROM acompanhamentos WHERE nome_acompanhamento = ?";
         db.query(sqlPrecos, [dados.prato, dados.acompanhamento], (err, precosResult) => {
             if (err || precosResult.length < 2) {
@@ -269,6 +322,7 @@ app.post('/cardapio', (req, res) => {
         res.json({ status: 'sucesso', mensagem: 'Cardápio adicionado com sucesso!' });
     });
 });
+
 
 // --- INICIAR O SERVIDOR ---
 app.listen(PORT, () => {

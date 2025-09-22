@@ -27,6 +27,9 @@
              <p style="text-align: center; margin-top: 20px;">
                 Ainda não tem conta? <a href="/registrar.html">Cadastre-se aqui!</a>
             </p>
+            <p style="text-align: center; margin-top: 10px;">
+                <a href="/esqueci-senha.html">Esqueci minha senha</a>
+            </p>
         </div>
     </div>
 
@@ -55,8 +58,8 @@
                     mensagemDiv.className = 'sucesso';
                     mensagemDiv.style.display = 'block';
                     setTimeout(() => {
-                        window.location.href = '/index.html'; // Redireciona para a página principal de pedidos
-                    }, 1500); // Aguarda 1.5 segundos
+                        window.location.href = '/index.html';
+                    }, 1500);
                 } else {
                     mensagemDiv.textContent = resultado.mensagem || 'Ocorreu um erro no login.';
                     mensagemDiv.className = 'erro';
