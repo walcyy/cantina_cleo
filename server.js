@@ -33,7 +33,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 } // Limite de 5MB
+    limits: { fileSize: 5 * 1024 * 1024 }
 });
 
 // --- CONFIGURAÇÃO DA CONEXÃO COM O MYSQL ---
@@ -138,12 +138,29 @@ app.post('/solicitar-recuperacao', (req, res) => {
         const expiracao = new Date(Date.now() + 3600000); // 1 hora
         db.query('UPDATE clientes SET token_recuperacao = ?, token_expiracao = ? WHERE id = ?', [token, expiracao, cliente.id], (err, result) => {
             if (err) { return res.status(500).send('Erro no servidor.'); }
+
+            const linkDeRecuperacao = `http://${process.env.SERVER_IP}:3000/redefinir-senha.html?token=${token}`;
+
             const mailOptions = {
-                from: process.env.GMAIL_USER,
+                from: `Cantina da Cléo <${process.env.GMAIL_USER}>`,
                 to: cliente.email,
                 subject: 'Recuperação de Senha - Cantina da Cléo',
-                html: `<p>Olá, ${cliente.nome}.</p><p>Você solicitou a redefinição de senha. Clique no link abaixo para criar uma nova senha:</p><a href="http://SEU_IP_PUBLICO:3000/redefinir-senha.html?token=${token}">Redefinir Senha</a><p>Este link expira em 1 hora.</p>`
+                text: `Olá, ${cliente.nome}. Para redefinir sua senha, por favor, copie e cole este link no seu navegador: ${linkDeRecuperacao}`,
+                html: `
+                    <div style="font-family: sans-serif; text-align: center; padding: 20px;">
+                        <h2 style="color: #4E342E;">Recuperação de Senha</h2>
+                        <p>Olá, ${cliente.nome}.</p>
+                        <p>Recebemos uma solicitação para redefinir sua senha. Clique no botão abaixo para criar uma nova.</p>
+                        <a href="${linkDeRecuperacao}" 
+                           style="display: inline-block; padding: 12px 25px; margin: 20px 0; font-size: 16px; color: white; background-color: #C62828; text-decoration: none; border-radius: 8px;">
+                           Redefinir Senha
+                        </a>
+                        <p style="font-size: 12px; color: #666;">Se você não solicitou isso, pode ignorar este e-mail.</p>
+                        <p style="font-size: 12px; color: #666;">Este link expira em 1 hora.</p>
+                    </div>
+                `
             };
+            
             transporter.sendMail(mailOptions, (err, info) => {
                 if (err) { console.error("Erro ao enviar e-mail:", err); }
                  return res.json({ status: 'sucesso', mensagem: 'Se uma conta com este e-mail existir, um link de recuperação foi enviado.' });
