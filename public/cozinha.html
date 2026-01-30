@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tela da Cozinha</title>
+    <style>
+        /* ESTILO ESCURO PARA COZINHA (FÁCIL LEITURA) */
+        body { 
+            background-color: #212121; color: white; font-family: sans-serif; 
+            margin: 0; padding: 20px; 
+        }
+
+        h1 { text-align: center; margin-bottom: 30px; color: #ffc107; text-transform: uppercase; }
+
+        .board { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        
+        .coluna { 
+            background: #333; border-radius: 10px; padding: 15px; 
+            min-height: 80vh; border: 2px solid #444; 
+        }
+        
+        .titulo-col { 
+            text-align: center; font-size: 1.5em; font-weight: bold; 
+            margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #555; 
+        }
+
+        /* CARD DO PEDIDO */
+        .pedido-card { 
+            background: #fff; color: #333; padding: 15px; margin-bottom: 15px; 
+            border-radius: 8px; border-left: 10px solid #ccc; 
+            animation: slideIn 0.3s;
+        }
+        
+        @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .header-card { display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; margin-bottom: 10px; }
+        .nome-cliente { color: #5D4037; text-transform: uppercase; }
+        .timer { background: #333; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; }
+
+        .itens { font-size: 1.3em; font-weight: bold; line-height: 1.4; margin-bottom: 15px; }
+        .obs { background: #ffebee; color: #c62828; padding: 5px; border-radius: 4px; font-weight: bold; margin-bottom: 10px; display: inline-block; }
+
+        /* BOTÕES GIGANTES */
+        .btn-acao { 
+            width: 100%; padding: 15px; border: none; border-radius: 6px; 
+            font-size: 1.2em; font-weight: bold; cursor: pointer; text-transform: uppercase; 
+        }
+
+        /* ESTILOS POR STATUS */
+        .status-recebido { border-left-color: #ffc107; } /* Amarelo */
+        .status-preparo { border-left-color: #2196f3; } /* Azul */
+
+        .btn-iniciar { background: #ffc107; color: #333; }
+        .btn-finalizar { background: #28a745; color: white; }
+
+    </style>
+</head>
+<body>
+
+    <h1>👨‍🍳 Monitor de Preparo</h1>
+
+    <div class="board">
+        <div class="coluna">
+            <div class="titulo-col" style="color:#ffc107;">PENDENTES (A Fazer)</div>
+            <div id="lista-recebidos">Carregando...</div>
+        </div>
+
+        <div class="coluna">
+            <div class="titulo-col" style="color:#2196f3;">NA CHAPA (Fazendo)</div>
+            <div id="lista-preparo"></div>
+        </div>
+    </div>
+
+    <script>
+        const somNovo = new Audio('/alert.mp3');
+        let idsConhecidos = [];
+        let primeiraCarga = true;
+
+        async function atualizarPedidos() {
+            try {
+                const res = await fetch('/get_pedidos');
+                const pedidos = await res.json();
+
+                const colRecebidos = document.getElementById('lista-recebidos');
+                const colPreparo = document.getElementById('lista-preparo');
+
+                colRecebidos.innerHTML = '';
+                colPreparo.innerHTML = '';
+
+                let temNovo = false;
+                let novosIds = [];
+
+                pedidos.forEach(p => {
+                    // Ignora o que já foi feito
+                    if (p.status === 'Pronto' || p.status === 'Saiu para Entrega' || p.status === 'Entregue' || p.status === 'Finalizado' || p.status === 'Cancelado') return;
+
+                    // CORREÇÃO CRUCIAL AQUI: p.nome_cliente
+                    const nome = p.nome_cliente ? p.nome_cliente.split(' ')[0] : 'Cliente';
+                    
+                    // Cálculo de tempo
+                    const [h, m] = p.hora.split(':');
+                    const agora = new Date();
+                    const dataPedido = new Date();
+                    dataPedido.setHours(h, m, 0);
+                    const diff = Math.floor((agora - dataPedido) / 60000);
+
+                    // HTML do Cartão
+                    const html = `
+                        <div class="pedido-card status-${p.status === 'Recebido' ? 'recebido' : 'preparo'}">
+                            <div class="header-card">
+                                <span class="nome-cliente">#${p.id} - ${nome}</span>
+                                <span class="timer">⏱ ${diff} min</span>
+                            </div>
+                            
+                            <div class="itens">
+                                ${p.prato}
+                            </div>
+
+                            ${p.observacao ? `<div class="obs">⚠️ OBS: ${p.observacao}</div>` : ''}
+                            
+                            ${p.status === 'Recebido' 
+                                ? `<button class="btn-acao btn-iniciar" onclick="mudarStatus(${p.id}, 'Em Preparo')">🔥 POR NA CHAPA</button>`
+                                : `<button class="btn-acao btn-finalizar" onclick="mudarStatus(${p.id}, 'Pronto')">✅ PRONTO!</button>`
+                            }
+                        </div>
+                    `;
+
+                    if (p.status === 'Recebido') {
+                        colRecebidos.innerHTML += html;
+                        novosIds.push(p.id);
+                        if (!primeiraCarga && !idsConhecidos.includes(p.id)) temNovo = true;
+                    } else if (p.status === 'Em Preparo') {
+                        colPreparo.innerHTML += html;
+                    }
+                });
+
+                if (temNovo) {
+                    somNovo.play().catch(e => {});
+                }
+                
+                idsConhecidos = novosIds;
+                primeiraCarga = false;
+
+            } catch (e) {
+                console.log("Erro ao buscar pedidos na cozinha:", e);
+            }
+        }
+
+        async function mudarStatus(id, status) {
+            await fetch(`/pedido/${id}/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ novoStatus: status })
+            });
+            atualizarPedidos();
+        }
+
+        // Atualiza a cada 5 segundos
+        setInterval(atualizarPedidos, 5000);
+        window.onload = atualizarPedidos;
+    </script>
+</body>
+</html>

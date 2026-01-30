@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel - Cantina da Cléo</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .cardapio .delete-btn { background-color: #dc3545; padding: 5px 10px; width: auto; float: right; border-radius: 5px; cursor: pointer; color: white; }
+        .prato-item, .bebida-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding: 5px 0; }
+        .btn-foto { background: #ffc107; color: #000; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+        .tem-foto { background: #28a745; color: white; }
+        
+        #form-novo-cardapio, #form-config, #form-bebidas { background-color: #FDF8F0; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd; }
+        input, select, textarea { width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        button { background-color: var(--cor-sucesso); width: 100%; padding: 10px; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 5px; }
+        
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; justify-content: center; align-items: center; }
+        .modal-content { background: #fff; padding: 20px; border-radius: 8px; max-width: 90%; }
+        .btn-testar-som { background: #17a2b8; width: auto; font-size: 0.8em; padding: 5px 10px; margin-left: 10px; }
+    </style>
+</head>
+<body class="admin">
+    <div class="admin-container">
+        <div class="logo-container"><img src="/logo.jpg" alt="Logo"></div>
+        <div class="tab-buttons">
+            <button class="tab-btn active" data-tab="pedidos">Pedidos</button>
+            <button class="tab-btn" data-tab="cardapios">Cardápios & Bebidas</button>
+            <button class="tab-btn" data-tab="config">Configurações</button>
+        </div>
+
+        <div class="tab-content">
+            <div id="pedidos" class="content-pane active">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <h1 class="admin-title">Total Dia: <span id="total-dia">0</span></h1>
+                    <button class="btn-testar-som" onclick="tocarAlerta()">🔊 Testar Som</button>
+                </div>
+                <div class="kanban-board">
+                    <div class="kanban-column"><h3>Recebidos</h3><div id="pedidos-recebidos" class="pedidos-list"></div></div>
+                    <div class="kanban-column"><h3>Preparo</h3><div id="pedidos-preparo" class="pedidos-list"></div></div>
+                    <div class="kanban-column"><h3>Entrega</h3><div id="pedidos-entrega" class="pedidos-list"></div></div>
+                </div>
+            </div>
+
+            <div id="cardapios" class="content-pane">
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 300px;">
+                        <div id="form-novo-cardapio">
+                            <h3>Novo Cardápio</h3>
+                            <form id="form-add-cardapio">
+                                <label>Nome:</label><input type="text" id="novo-nome" placeholder="Ex: Terça" required>
+                                <label>Pratos (Nome;Preço):</label><textarea id="novo-pratos" placeholder="Frango;18.00" rows="5" required></textarea>
+                                <button type="submit">Salvar</button>
+                            </form>
+                        </div>
+                        <div id="lista-cardapios"></div>
+                    </div>
+                    
+                    <div style="flex: 1; min-width: 300px;">
+                        <div id="form-bebidas">
+                            <h3>Bebidas</h3>
+                            <form id="form-add-bebida">
+                                <input type="text" id="bebida-nome" placeholder="Nome" required>
+                                <input type="number" step="0.01" id="bebida-preco" placeholder="Preço" required>
+                                <button type="submit" style="background-color: #17a2b8;">Adicionar</button>
+                            </form>
+                            <div id="lista-bebidas" style="margin-top: 10px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="config" class="content-pane">
+                <div id="form-config">
+                    <h3>Status</h3>
+                    <form id="form-update-config">
+                        <select id="config-modo"><option value="AUTO">Automático</option><option value="ABERTO">Forçar ABERTO</option><option value="FECHADO">Forçar FECHADO</option></select>
+                        <input type="time" id="config-abertura" required>
+                        <input type="time" id="config-fechamento" required>
+                        <button type="submit">Salvar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-upload" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Enviar Foto</h3>
+            <input type="file" id="input-foto" accept="image/*">
+            <input type="hidden" id="id-upload">
+            <input type="hidden" id="tipo-upload"> <button onclick="enviarFoto()">Salvar</button>
+            <button onclick="document.getElementById('modal-upload').style.display='none'" style="background: #ccc; margin-top: 5px;">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="modal-comprovante" class="modal-overlay">
+        <div class="modal-content" style="max-width: 90%; background: none;">
+            <span class="close-modal" onclick="document.getElementById('modal-comprovante').style.display='none'" style="color:white; font-size:30px; cursor:pointer; position: absolute; top:0; right:0;">&times;</span>
+            <img id="img-zoom" src="" style="max-width:100%; border-radius: 8px;">
+        </div>
+    </div>
+
+    <script>
+        const tabs=document.querySelectorAll('.tab-btn'), panes=document.querySelectorAll('.content-pane');
+        tabs.forEach(btn=>btn.addEventListener('click',()=>{tabs.forEach(b=>b.classList.remove('active'));panes.forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.getElementById(btn.dataset.tab).classList.add('active');}));
+        function abrirModal(url){document.getElementById('img-zoom').src=url;document.getElementById('modal-comprovante').style.display='flex';}
+
+        // Som
+        const audioAlerta=new Audio('/alert.mp3'); let idsConhecidos=[], primeiraCarga=true;
+        function tocarAlerta(){audioAlerta.play().catch(e=>console.log(e));}
+
+        // Upload Genérico
+        function abrirModalFoto(id, tipo) {
+            document.getElementById('id-upload').value = id;
+            document.getElementById('tipo-upload').value = tipo;
+            document.getElementById('modal-upload').style.display = 'flex';
+        }
+        async function enviarFoto() {
+            const id = document.getElementById('id-upload').value;
+            const tipo = document.getElementById('tipo-upload').value;
+            const file = document.getElementById('input-foto').files[0];
+            if(!file) return alert("Selecione uma foto!");
+            
+            const formData = new FormData(); formData.append('foto', file);
+            const rota = tipo === 'prato' ? `/upload-foto-prato/${id}` : `/upload-foto-bebida/${id}`;
+            
+            const res = await fetch(rota, { method: 'POST', body: formData });
+            if(res.ok) { 
+                alert("Salvo!"); 
+                document.getElementById('modal-upload').style.display='none'; 
+                if(tipo === 'prato') carregarCardapios(); else carregarBebidas();
+            } else alert("Erro.");
+        }
+
+        // Cardápios
+        async function carregarCardapios() {
+            const res=await fetch('/todos-os-cardapios'); const data=await res.json();
+            const div=document.getElementById('lista-cardapios'); div.innerHTML='';
+            data.forEach(c=>{
+                let pratosHtml='';
+                c.pratos.forEach(p=>{
+                    const txt = p.foto ? '📷 OK' : '📷 Add';
+                    const cls = p.foto ? 'btn-foto tem-foto' : 'btn-foto';
+                    pratosHtml+=`<div class="prato-item"><span>${p.nome_prato}</span><button class="${cls}" onclick="abrirModalFoto(${p.id}, 'prato')">${txt}</button></div>`;
+                });
+                div.innerHTML+=`<div class="cardapio ${c.isAtivo?'ativo':''}">
+                    <button class="delete-btn" onclick="deletarCardapio(${c.id})">X</button><h4>${c.nome}</h4><div style="margin:10px 0;">${pratosHtml}</div>
+                    <button class="ativar-btn" onclick="ativarCardapio(${c.id})" ${c.isAtivo?'disabled':''}>${c.isAtivo?'ATIVO':'Ativar'}</button>
+                </div>`;
+            });
+        }
+        document.getElementById('form-add-cardapio').addEventListener('submit',async(e)=>{e.preventDefault();await fetch('/cardapio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome:document.getElementById('novo-nome').value,pratos:document.getElementById('novo-pratos').value.split('\n').filter(p=>p.trim())})});e.target.reset();carregarCardapios();});
+        async function ativarCardapio(id){await fetch(`/ativar-cardapio/${id}`,{method:'POST'});carregarCardapios();}
+        async function deletarCardapio(id){if(confirm('Apagar?')){await fetch(`/cardapio/${id}`,{method:'DELETE'});carregarCardapios();}}
+
+        // Bebidas
+        async function carregarBebidas() {
+            const res=await fetch('/todas-bebidas'); const b=await res.json();
+            const d=document.getElementById('lista-bebidas'); d.innerHTML='';
+            b.forEach(i=>{
+                const txt = i.foto ? '📷 OK' : '📷 Add';
+                const cls = i.foto ? 'btn-foto tem-foto' : 'btn-foto';
+                d.innerHTML+=`<div class="bebida-item">
+                    <span>${i.nome} - R$ ${i.preco}</span>
+                    <div>
+                        <button class="${cls}" onclick="abrirModalFoto(${i.id}, 'bebida')">${txt}</button>
+                        <button onclick="delBeb(${i.id})" style="background:red; padding:2px 8px; border-radius:4px; margin-left:5px;">X</button>
+                    </div>
+                </div>`;
+            });
+        }
+        document.getElementById('form-add-bebida').addEventListener('submit',async(e)=>{e.preventDefault();await fetch('/bebida',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome:document.getElementById('bebida-nome').value,preco:document.getElementById('bebida-preco').value})});e.target.reset();carregarBebidas();});
+        async function delBeb(id){if(confirm('Apagar?')){await fetch(`/bebida/${id}`,{method:'DELETE'});carregarBebidas();}}
+
+        // Pedidos
+        async function buscarPedidos() {
+            const res=await fetch('/get_pedidos'); const pedidos=await res.json();
+            const resTot=await fetch('/pedidos/total-hoje'); const tot=await resTot.json();
+            document.getElementById('total-dia').innerText=tot.total||0;
+            ['recebidos','preparo','entrega'].forEach(id=>document.getElementById('pedidos-'+id).innerHTML='');
+            let tocouSom=false, novosIds=[];
+            pedidos.forEach(p=>{
+                if(p.status==='Entregue')return;
+                if(p.status==='Recebido'){novosIds.push(p.id);if(!primeiraCarga&&!idsConhecidos.includes(p.id))tocouSom=true;}
+                const div=document.createElement('div'); div.className=`pedido status-${p.status.toLowerCase().replace(' ','-')}`;
+                const btnPix=p.comprovante_pix_url?`<button class="comprovante-btn" onclick="abrirModal('${p.comprovante_pix_url}')">Ver PIX</button>`:'';
+                div.innerHTML=`<h3>#${p.id} - ${p.nome}</h3><p>Total: R$ ${p.valor_total}</p>${btnPix}<div style="font-size:0.9em;margin:5px 0;">${p.prato}</div><hr><button class="status-btn" data-id="${p.id}" data-status="Em Preparo">Preparo</button><button class="status-btn" data-id="${p.id}" data-status="Saiu para Entrega">Entrega</button><button class="status-btn" data-id="${p.id}" data-status="Entregue">Finalizar</button>`;
+                if(p.status==='Recebido')document.getElementById('pedidos-recebidos').appendChild(div);else if(p.status==='Em Preparo')document.getElementById('pedidos-preparo').appendChild(div);else document.getElementById('pedidos-entrega').appendChild(div);
+            });
+            if(tocouSom)tocarAlerta(); idsConhecidos=novosIds; primeiraCarga=false;
+        }
+        document.addEventListener('click',async(e)=>{if(e.target.classList.contains('status-btn')){await fetch(`/pedido/${e.target.dataset.id}/status`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({novoStatus:e.target.dataset.status})});buscarPedidos();}});
+        
+        // Config
+        async function carregarConfig(){const res=await fetch('/status-loja');const d=await res.json();if(d.config){document.getElementById('config-modo').value=d.config.modo;document.getElementById('config-abertura').value=d.config.abertura;document.getElementById('config-fechamento').value=d.config.fechamento;}}
+        document.getElementById('form-update-config').addEventListener('submit',async(e)=>{e.preventDefault();await fetch('/config-loja',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({modo:document.getElementById('config-modo').value,abertura:document.getElementById('config-abertura').value,fechamento:document.getElementById('config-fechamento').value})});alert('Salvo!');});
+
+        setInterval(()=>{if(document.getElementById('pedidos').classList.contains('active'))buscarPedidos();},5000);
+        window.onload=()=>{buscarPedidos();carregarBebidas();carregarConfig();carregarCardapios();};
+    </script>
+</body>
+</html>

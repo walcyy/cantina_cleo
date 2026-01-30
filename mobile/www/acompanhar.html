@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastrear Pedido - Cantina da Cléo</title>
+    <link rel="stylesheet" href="/style.css">
+    <meta name="theme-color" content="#4E342E">
+    <style>
+        .rastreio-container { max-width: 500px; margin: 20px auto; padding: 20px; }
+        
+        /* --- CSS CORRIGIDO DO CAMPO DE BUSCA --- */
+        .busca-box { 
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 30px; 
+            justify-content: center; /* Centraliza */
+        }
+        .busca-box input { 
+            flex: 2; /* Ocupa mais espaço */
+            padding: 12px; 
+            border-radius: 5px; 
+            border: 1px solid #ccc; 
+            font-size: 1.1em; 
+            text-align: center; /* Centraliza o número */
+            max-width: 200px; /* Limita a largura máxima */
+        }
+        .busca-box button { 
+            flex: 1; /* Ocupa menos espaço que o input */
+            background-color: var(--cor-destaque); 
+            color: white; 
+            border: none; 
+            padding: 0 20px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            max-width: 120px; /* Limita a largura máxima */
+        }
+        /* ----------------------------------------- */
+
+        /* ESTILO DA LINHA DO TEMPO (PROGRESS BAR) */
+        .timeline { list-style: none; padding: 0; margin-top: 20px; position: relative; }
+        .timeline::before {
+            content: ''; position: absolute; left: 20px; top: 0; bottom: 0; width: 4px; background: #ddd; z-index: 0;
+        }
+        .timeline li { position: relative; margin-bottom: 30px; padding-left: 60px; opacity: 0.5; transition: all 0.5s; }
+        .timeline li::before {
+            content: ''; position: absolute; left: 10px; top: 0; width: 24px; height: 24px; border-radius: 50%; background: #ccc; border: 4px solid #fff; box-shadow: 0 0 5px rgba(0,0,0,0.2); z-index: 1;
+        }
+        
+        /* Etapas Ativas */
+        .timeline li.active { opacity: 1; font-weight: bold; color: var(--cor-texto); }
+        .timeline li.active::before { background: var(--cor-sucesso); transform: scale(1.2); }
+        
+        /* Linha verde preenchendo */
+        .timeline.step-1::before { background: linear-gradient(to bottom, var(--cor-sucesso) 33%, #ddd 33%); }
+        .timeline.step-2::before { background: linear-gradient(to bottom, var(--cor-sucesso) 66%, #ddd 66%); }
+        .timeline.step-3::before { background: var(--cor-sucesso); }
+
+        .detalhes-pedido { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-top: 20px; display: none; }
+        .voltar-btn { display: block; text-align: center; margin-top: 20px; color: #666; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="rastreio-container">
+        <div class="card">
+            <div class="logo-container"><img src="/logo.jpg" alt="Logo"></div>
+            <h2 style="text-align: center;">Acompanhar Pedido</h2>
+            
+            <div class="busca-box">
+                <input type="number" id="input-id" placeholder="Nº do Pedido (Ex: 15)">
+                <button onclick="buscarPedido()">Buscar</button>
+            </div>
+
+            <div id="resultado" style="display: none;">
+                <h3 style="text-align: center;">Status do Pedido #<span id="res-id"></span></h3>
+                
+                <ul id="timeline-ul" class="timeline">
+                    <li id="step-recebido">
+                        <h4>Pedido Recebido</h4>
+                        <p>A cozinha já recebeu seu pedido.</p>
+                    </li>
+                    <li id="step-preparo">
+                        <h4>Em Preparo</h4>
+                        <p>Estamos preparando sua refeição com carinho.</p>
+                    </li>
+                    <li id="step-entrega">
+                        <h4>Saiu para Entrega / Pronto</h4>
+                        <p>Seu pedido saiu para entrega ou está pronto!</p>
+                    </li>
+                </ul>
+
+                <div class="detalhes-pedido" style="display: block;">
+                    <p><strong>Cliente:</strong> <span id="res-nome"></span></p>
+                    <p><strong>Prato:</strong> <span id="res-prato"></span></p>
+                    <p><strong>Acompanhamento:</strong> <span id="res-acomp"></span></p>
+                    <p><strong>Bebidas:</strong> <span id="res-bebidas"></span></p>
+                    <hr>
+                    <p style="text-align: right; font-size: 1.2em; color: var(--cor-sucesso);"><strong>Total: R$ <span id="res-total"></span></strong></p>
+                </div>
+            </div>
+
+            <p id="msg-erro" style="color: red; text-align: center; display: none;"></p>
+            <a href="/" class="voltar-btn">← Voltar para Cardápio</a>
+        </div>
+    </div>
+
+    <script>
+        async function buscarPedido() {
+            const id = document.getElementById('input-id').value;
+            if(!id) return alert("Digite o número do pedido!");
+
+            const erro = document.getElementById('msg-erro');
+            const resultado = document.getElementById('resultado');
+            
+            try {
+                const res = await fetch(`/rastrear/${id}`);
+                const data = await res.json();
+
+                if (data.status === 'erro' || !data.id) {
+                    erro.innerText = "Pedido não encontrado. Verifique o número.";
+                    erro.style.display = 'block';
+                    resultado.style.display = 'none';
+                    return;
+                }
+
+                erro.style.display = 'none';
+                resultado.style.display = 'block';
+
+                // Preencher dados
+                document.getElementById('res-id').innerText = data.id;
+                document.getElementById('res-nome').innerText = data.nome_cliente;
+                document.getElementById('res-prato').innerText = data.prato;
+                document.getElementById('res-acomp').innerText = data.acompanhamento;
+                document.getElementById('res-bebidas').innerText = data.bebidas || '-';
+                document.getElementById('res-total').innerText = parseFloat(data.valor_total).toFixed(2).replace('.', ',');
+
+                // Atualizar Timeline (Barra de Progresso)
+                const ul = document.getElementById('timeline-ul');
+                const s1 = document.getElementById('step-recebido');
+                const s2 = document.getElementById('step-preparo');
+                const s3 = document.getElementById('step-entrega');
+
+                // Reseta classes
+                ul.className = 'timeline';
+                s1.className = ''; s2.className = ''; s3.className = '';
+
+                const st = data.status;
+
+                if (st === 'Recebido') {
+                    s1.classList.add('active');
+                    ul.classList.add('step-1');
+                } else if (st === 'Em Preparo') {
+                    s1.classList.add('active');
+                    s2.classList.add('active');
+                    ul.classList.add('step-2');
+                } else if (st === 'Saiu para Entrega' || st === 'Entregue') {
+                    s1.classList.add('active');
+                    s2.classList.add('active');
+                    s3.classList.add('active');
+                    ul.classList.add('step-3');
+                }
+
+            } catch (e) {
+                console.error(e);
+                erro.innerText = "Erro de conexão.";
+                erro.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

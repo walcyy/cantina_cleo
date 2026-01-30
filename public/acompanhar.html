@@ -3,97 +3,193 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acompanhar Pedido - Cantina da Cléo</title>
+    <title>Acompanhar Pedido</title>
     <link rel="stylesheet" href="/style.css">
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="cordova.js"></script>
+
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Cantina da Cléo">
+    <link rel="apple-touch-icon" href="/logo.jpg">
+
     <style>
-        #status-resultado {
-            margin-top: 25px; padding: 20px; border-radius: 8px;
-            text-align: center; font-size: 1.2em; font-weight: bold;
-            display: none; border: 1px solid;
-        }
-        .status-recebido { background-color: #E3F2FD; color: #0D47A1; border-color: #90CAF9; }
-        .status-em-preparo { background-color: #FFFDE7; color: #F57F17; border-color: #FFF59D; }
-        .status-saiu-para-entrega { background-color: #E8F5E9; color: #1B5E20; border-color: #A5D6A7; }
-        .status-entregue { background-color: #F5F5F5; color: #616161; border-color: #E0E0E0; }
-        .erro { background-color: #FFEBEE; color: #B71C1C; border-color: #FFCDD2; }
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; color: #333; display: flex; flex-direction: column; min-height: 100vh; }
         
-        #detalhes-pedido {
-            display: none; text-align: left;
-            margin-top: 20px; padding-top: 20px;
-            border-top: 1px solid var(--cor-borda-suave);
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; background: white; flex: 1; width: 100%; box-sizing: border-box; }
+        
+        .logo-area { text-align: center; margin-bottom: 20px; padding-top: 10px; }
+        .logo-area img { max-height: 80px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        
+        .busca-box { text-align: center; margin-top: 40px; }
+        .input-id { padding: 15px; font-size: 1.3em; width: 70%; border: 2px solid #ddd; border-radius: 12px; text-align: center; outline: none; }
+        .input-id:focus { border-color: #5D4037; }
+        .btn-buscar { padding: 15px 30px; font-size: 1.2em; background: #5D4037; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; margin-top: 20px; width: 80%; }
+        
+        #status-area { display: none; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .status-header { text-align: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
+        .status-header h2 { margin: 0; color: #5D4037; }
+        .valor-total { color: #28a745; font-weight: 800; font-size: 1.4em; margin-top: 5px; }
+
+        .msg-box { padding: 20px; border-radius: 15px; margin-bottom: 30px; text-align: center; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .msg-icon { font-size: 3em; display: block; margin-bottom: 10px; }
+        .msg-title { font-weight: 800; font-size: 1.2em; display: block; margin-bottom: 5px; text-transform: uppercase; }
+        
+        .msg-amarela { background: #fff8e1; color: #f57f17; border: 2px solid #ffecb3; } 
+        .msg-azul { background: #e3f2fd; color: #0d47a1; border: 2px solid #2196f3; animation: pulse 2s infinite; } 
+        .msg-verde { background: #e8f5e9; color: #1b5e20; border: 2px solid #c8e6c9; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
+
+        .timeline { list-style: none; padding: 0; position: relative; margin: 0 20px 30px 20px; }
+        .timeline:before { content: ''; position: absolute; top: 0; bottom: 0; left: 29px; width: 4px; background: #e0e0e0; border-radius: 2px; }
+        .step { position: relative; padding-left: 80px; margin-bottom: 30px; opacity: 0.4; transition: opacity 0.5s; }
+        .step.active { opacity: 1; }
+        .step-icon { position: absolute; left: 0; top: 0; width: 60px; height: 60px; background: #fff; border: 4px solid #e0e0e0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8em; z-index: 2; }
+        .step.active .step-icon { border-color: #28a745; background: #28a745; color: white; }
+
+        .btn-voltar { display: block; width: 100%; text-align: center; background: white; color: #555; padding: 15px; border: 1px solid #ccc; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 1.1em; margin-top: 15px; }
+        .btn-voltar-home { display: block; width: 100%; text-align: center; background: #5D4037; color: white; padding: 15px; border: none; border-radius: 12px; text-decoration: none; font-weight: bold; font-size: 1.1em; margin-top: 30px; }
+
+        /* RODAPÉ DO DESENVOLVEDOR */
+        .dev-footer {
+            text-align: center;
+            padding: 20px;
+            background: #f1f1f1;
+            color: #777;
+            font-size: 0.85em;
+            border-top: 1px solid #e0e0e0;
+            margin-top: auto; /* Empurra para o fundo */
         }
-        #detalhes-pedido p { margin: 8px 0; font-size: 1.1em; }
-        #detalhes-pedido h4 { margin-top: 0; }
+        .dev-footer strong { color: #5D4037; font-weight: 600; }
+        .dev-version { font-size: 0.75em; color: #aaa; margin-top: 5px; display: block; }
     </style>
 </head>
 <body>
-    <div class="cliente-container">
-        <div class="card">
-            <div class="logo-container">
-                <img src="/logo.jpg" alt="Logo da Cantina da Cléo">
-            </div>
-            <h2>Acompanhe seu Pedido</h2>
-            <p>Digite o número do seu pedido abaixo para ver o status.</p>
-            <form id="form-acompanhar">
-                <label for="pedido-id">Número do Pedido:</label>
-                <input type="number" id="pedido-id" placeholder="#" required>
-                <button type="submit">Buscar Pedido</button>
-            </form>
 
-            <div id="status-resultado"></div>
-            <div id="detalhes-pedido"></div>
+    <div class="container">
+        <div class="logo-area"><img src="/logo.jpg" alt="Logo"></div>
 
+        <div class="busca-box" id="box-busca">
+            <h2>Acompanhar Pedido</h2>
+            <p style="color:#666;">Digite o número do seu pedido:</p>
+            <input type="number" id="input-pedido" class="input-id" placeholder="Ex: 45">
+            <br>
+            <button class="btn-buscar" onclick="iniciarRastreio()">Rastrear Agora</button>
+            <br>
+            <a href="/" style="display:block; margin-top:30px; color:#777; text-decoration:none;">← Voltar ao Cardápio</a>
         </div>
-        <div style="text-align: center; margin-top: 20px;">
-            <a href="/" style="color: var(--cor-texto);">Voltar para o Cardápio</a>
+
+        <div id="status-area">
+            <div class="status-header">
+                <h2 id="cliente-nome">--</h2>
+                <p>Pedido #<span id="pedido-id">00</span></p>
+                <div class="valor-total" id="valor-total">R$ 0,00</div>
+            </div>
+
+            <div id="msg-saiu" class="msg-box msg-amarela"><span class="msg-icon">🛵</span><span class="msg-title">Saiu para Entrega</span><span class="msg-text">O motoboy está a caminho!</span></div>
+            <div id="msg-rota" class="msg-box msg-azul"><span class="msg-icon">🚀</span><span class="msg-title">Chegando!</span><span class="msg-text">O motoboy está muito perto da sua casa.</span></div>
+            <div id="msg-entregue" class="msg-box msg-verde"><span class="msg-icon">😋</span><span class="msg-title">Entregue</span><span class="msg-text">Bom apetite!</span></div>
+
+            <ul class="timeline">
+                <li class="step" id="step-recebido"><div class="step-icon">📝</div><div><h3>Recebido</h3><p>Pedido confirmado.</p></div></li>
+                <li class="step" id="step-preparo"><div class="step-icon">🔥</div><div><h3>Em Preparo</h3><p>Sendo feito na cozinha.</p></div></li>
+                <li class="step" id="step-entrega"><div class="step-icon">🛵</div><div><h3>Saiu da Loja</h3><p>Entregue ao motoboy.</p></div></li>
+                <li class="step" id="step-finalizado"><div class="step-icon">✅</div><div><h3>Entregue</h3><p>Finalizado com sucesso.</p></div></li>
+            </ul>
+
+            <a href="/" class="btn-voltar-home">Fazer Novo Pedido</a>
+            <button onclick="location.reload()" class="btn-voltar">Pesquisar Outro</button>
         </div>
     </div>
 
+    <div class="dev-footer">
+        Desenvolvido por <strong>Walcy Santos</strong>
+        <span class="dev-version">v1.0.0.0</span>
+    </div>
+
     <script>
-        document.getElementById('form-acompanhar').addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const pedidoId = document.getElementById('pedido-id').value;
-            const resultadoDiv = document.getElementById('status-resultado');
-            const detalhesDiv = document.getElementById('detalhes-pedido');
-            
-            if (!pedidoId) return;
+        const socket = io(); 
+        let idAtual = null;
+        let ultimoStatus = '';
 
-            resultadoDiv.style.display = 'none';
-            detalhesDiv.style.display = 'none';
-            detalhesDiv.innerHTML = '';
+        // CONFIGURAÇÃO DE NOTIFICAÇÃO (CORDOVA)
+        document.addEventListener('deviceready', function () {
+            if (window.cordova && cordova.plugins.notification) {
+                cordova.plugins.notification.local.hasPermission(function (granted) {
+                    if (!granted) cordova.plugins.notification.local.requestPermission();
+                });
+            }
+        }, false);
 
-            try {
-                const response = await fetch(`/pedido/${pedidoId}`);
-                resultadoDiv.style.display = 'block';
-
-                if (response.ok) {
-                    const pedido = await response.json();
-                    
-                    let statusClasse = 'status-' + pedido.status.toLowerCase().replace(/ /g, '-');
-                    resultadoDiv.className = `status-resultado ${statusClasse}`;
-                    resultadoDiv.innerHTML = `<strong>Status:</strong> ${pedido.status}`;
-
-                    detalhesDiv.style.display = 'block';
-                    detalhesDiv.innerHTML = `
-                        <h4>Resumo do Pedido #${pedido.id}</h4>
-                        <p><strong>Prato:</strong> ${pedido.prato}</p>
-                        <p><strong>Acompanhamento:</strong> ${pedido.acompanhamento}</p>
-                        <p><strong>Quantidade:</strong> ${pedido.quantidade}</p>
-                        <p><strong>Observação:</strong> ${pedido.observacao || 'Nenhuma'}</p>
-                        <hr style="border: 0; border-top: 1px solid var(--cor-borda-suave);">
-                        <p><strong>Valor Total: R$ ${parseFloat(pedido.valor_total).toFixed(2).replace('.', ',')}</strong></p>
-                        <p><strong>Pagamento:</strong> ${pedido.forma_pagamento}</p>
-                    `;
-                } else {
-                    resultadoDiv.className = 'status-resultado erro';
-                    resultadoDiv.innerHTML = `Pedido #${pedidoId} não encontrado. Verifique o número e tente novamente.`;
-                }
-            } catch (error) {
-                resultadoDiv.style.display = 'block';
-                resultadoDiv.className = 'status-resultado erro';
-                resultadoDiv.innerHTML = 'Erro de conexão. Tente novamente mais tarde.';
+        // SOCKET IO
+        socket.on('atualizacao_status', (data) => {
+            if (data.id == idAtual) {
+                buscarDados();
+                notificarCliente(data.status);
             }
         });
+
+        window.onload = () => {
+            const ult = localStorage.getItem('ultimo_pedido');
+            if(ult) document.getElementById('input-pedido').value = ult;
+        };
+
+        function iniciarRastreio() {
+            idAtual = document.getElementById('input-pedido').value;
+            if(!idAtual) return alert('Digite o ID');
+            document.getElementById('box-busca').style.display = 'none';
+            document.getElementById('status-area').style.display = 'block';
+            buscarDados();
+        }
+
+        async function buscarDados() {
+            try {
+                const r = await fetch(`/rastrear/${idAtual}`);
+                const p = await r.json();
+                if(!p.id) return alert('Não encontrado');
+
+                document.getElementById('cliente-nome').innerText = p.nome_cliente ? p.nome_cliente.split(' ')[0] : 'Cliente';
+                document.getElementById('pedido-id').innerText = p.id;
+                document.getElementById('valor-total').innerText = `R$ ${parseFloat(p.valor_total).toFixed(2)}`;
+
+                const st = p.status;
+                if(ultimoStatus !== '' && ultimoStatus !== st) notificarCliente(st);
+                ultimoStatus = st;
+
+                atualizarVisual(st);
+            } catch(e) { console.log(e); }
+        }
+
+        function atualizarVisual(st) {
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            ['msg-saiu', 'msg-rota', 'msg-entregue'].forEach(id => document.getElementById(id).style.display = 'none');
+
+            if(['Recebido', 'Em Preparo', 'Pronto', 'Saiu para Entrega', 'Em Rota', 'Entregue', 'Finalizado'].includes(st)) document.getElementById('step-recebido').classList.add('active');
+            if(['Em Preparo', 'Pronto', 'Saiu para Entrega', 'Em Rota', 'Entregue', 'Finalizado'].includes(st)) document.getElementById('step-preparo').classList.add('active');
+            if(['Saiu para Entrega', 'Em Rota', 'Entregue', 'Finalizado'].includes(st)) document.getElementById('step-entrega').classList.add('active');
+            if(['Entregue', 'Finalizado'].includes(st)) document.getElementById('step-finalizado').classList.add('active');
+
+            if (st === 'Saiu para Entrega') document.getElementById('msg-saiu').style.display = 'block';
+            else if (st === 'Em Rota') document.getElementById('msg-rota').style.display = 'block';
+            else if (st === 'Entregue' || st === 'Finalizado') document.getElementById('msg-entregue').style.display = 'block';
+        }
+
+        function notificarCliente(novoStatus) {
+            const audio = new Audio('/alert.mp3'); 
+            audio.play().catch(e=>{});
+
+            if (window.cordova && cordova.plugins.notification) {
+                cordova.plugins.notification.local.schedule({
+                    title: 'Atualização do Pedido! 🍔',
+                    text: `Status atual: ${novoStatus}`,
+                    foreground: true, vibrate: true, icon: 'res://icon.png'
+                });
+            }
+        }
     </script>
 </body>
 </html>

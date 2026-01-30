@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acompanhar Pedido</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; background: white; min-height: 100vh; }
+        .logo-area { text-align: center; margin-bottom: 20px; padding-top: 10px; }
+        .logo-area img { max-height: 90px; }
+        
+        .busca-box { text-align: center; margin-top: 50px; }
+        .input-id { padding: 15px; font-size: 1.3em; width: 70%; border: 2px solid #ddd; border-radius: 8px; text-align: center; }
+        .btn-buscar { padding: 15px 25px; font-size: 1.2em; background: #5D4037; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; width: 80%; }
+        
+        #status-area { display: none; }
+        .status-header { text-align: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        .status-header h2 { margin: 0; color: #5D4037; }
+        
+        .msg-box { padding: 20px; border-radius: 10px; margin-bottom: 30px; text-align: center; display: none; }
+        .msg-amarela { background: #fff3cd; color: #856404; border: 2px solid #ffeeba; }
+        .msg-azul { background: #e3f2fd; color: #0d47a1; border: 2px solid #2196f3; animation: pulse 2s infinite; }
+        .msg-verde { background: #d4edda; color: #155724; border: 2px solid #c3e6cb; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4); } 70% { box-shadow: 0 0 0 15px rgba(33, 150, 243, 0); } 100% { box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); } }
+
+        .timeline { list-style: none; padding: 0; position: relative; margin: 0 20px; }
+        .timeline:before { content: ''; position: absolute; top: 0; bottom: 0; left: 24px; width: 4px; background: #eee; }
+        .step { position: relative; padding-left: 70px; margin-bottom: 30px; opacity: 0.4; }
+        .step.active { opacity: 1; }
+        .step-icon { position: absolute; left: 0; top: 0; width: 50px; height: 50px; background: #fff; border: 4px solid #ccc; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5em; z-index: 2; }
+        .step.active .step-icon { border-color: #28a745; background: #28a745; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo-area"><img src="/logo.jpg" alt="Logo"></div>
+        <div class="busca-box" id="box-busca">
+            <h3>Acompanhe seu pedido</h3>
+            <input type="number" id="input-pedido" class="input-id" placeholder="Nº Pedido">
+            <br><button class="btn-buscar" onclick="iniciarRastreio()">Rastrear</button>
+        </div>
+        <div id="status-area">
+            <div class="status-header"><h2 id="cliente-nome">--</h2><p>Pedido #<span id="pedido-id">00</span></p><div style="color:#28a745; font-weight:bold; font-size:1.2em;" id="valor-total"></div></div>
+            <div id="msg-saiu" class="msg-box msg-amarela"><h3>🛵 Saiu para Entrega</h3><p>O motoboy está na rua com seu pedido e outros.</p></div>
+            <div id="msg-rota" class="msg-box msg-azul"><h3>🚀 INDO ATÉ VOCÊ!</h3><p>O motoboy iniciou a rota para o <strong>SEU ENDEREÇO</strong>.</p></div>
+            <div id="msg-entregue" class="msg-box msg-verde"><h3>✅ Entregue</h3><p>Bom apetite!</p></div>
+            <ul class="timeline">
+                <li class="step" id="step-recebido"><div class="step-icon">📝</div><div><h3>Recebido</h3></div></li>
+                <li class="step" id="step-preparo"><div class="step-icon">🔥</div><div><h3>Preparando</h3></div></li>
+                <li class="step" id="step-entrega"><div class="step-icon">🛵</div><div><h3>Saiu da Loja</h3></div></li>
+                <li class="step" id="step-finalizado"><div class="step-icon">🏁</div><div><h3>Entregue</h3></div></li>
+            </ul>
+            <button onclick="location.reload()" style="background:none; border:none; width:100%; color:#777; margin-top:20px; cursor:pointer;">Pesquisar outro</button>
+        </div>
+    </div>
+    <script>
+        let intervalo = null, idAtual = null;
+        function iniciarRastreio() {
+            const id = document.getElementById('input-pedido').value;
+            if(!id) return alert('Digite o número!');
+            idAtual = id; document.getElementById('box-busca').style.display='none'; document.getElementById('status-area').style.display='block';
+            buscarDados(); intervalo = setInterval(buscarDados, 5000);
+        }
+        async function buscarDados() {
+            try {
+                const res = await fetch(`/rastrear/${idAtual}`); const p = await res.json();
+                if(!p || !p.id) { clearInterval(intervalo); alert('Não encontrado'); location.reload(); return; }
+                
+                document.getElementById('cliente-nome').innerText = p.nome_cliente ? p.nome_cliente.split(' ')[0] : 'Cliente';
+                document.getElementById('pedido-id').innerText = p.id;
+                document.getElementById('valor-total').innerText = `R$ ${parseFloat(p.valor_total).toFixed(2)}`;
+
+                document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+                ['msg-saiu','msg-rota','msg-entregue'].forEach(id => document.getElementById(id).style.display='none');
+
+                const st = p.status;
+                if(['Recebido','Em Preparo','Pronto','Saiu para Entrega','Em Rota','Entregue','Finalizado'].includes(st)) document.getElementById('step-recebido').classList.add('active');
+                if(['Em Preparo','Pronto','Saiu para Entrega','Em Rota','Entregue','Finalizado'].includes(st)) document.getElementById('step-preparo').classList.add('active');
+                if(['Saiu para Entrega','Em Rota','Entregue','Finalizado'].includes(st)) document.getElementById('step-entrega').classList.add('active');
+                if(['Entregue','Finalizado'].includes(st)) document.getElementById('step-finalizado').classList.add('active');
+
+                if(st === 'Saiu para Entrega') document.getElementById('msg-saiu').style.display = 'block';
+                else if(st === 'Em Rota') document.getElementById('msg-rota').style.display = 'block';
+                else if(st === 'Entregue' || st === 'Finalizado') document.getElementById('msg-entregue').style.display = 'block';
+            } catch(e){}
+        }
+    </script>
+</body>
+</html>
